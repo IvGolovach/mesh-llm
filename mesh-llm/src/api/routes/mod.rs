@@ -2,6 +2,7 @@ mod chat;
 mod discover;
 mod mesh_hook;
 mod model_interests;
+mod model_targets;
 mod objects;
 mod plugins;
 mod runtime;
@@ -81,6 +82,10 @@ pub(super) const DISPATCH_REQUEST: DispatchRequestFn =
                 }
                 ("GET", "/api/search") => {
                     search::handle(stream, path).await?;
+                    Ok(true)
+                }
+                ("GET", "/api/model-targets") => {
+                    model_targets::handle(stream, state).await?;
                     Ok(true)
                 }
                 ("GET", "/api/model-interests") | ("POST", "/api/model-interests") => {
