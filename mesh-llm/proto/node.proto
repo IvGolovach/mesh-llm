@@ -42,6 +42,7 @@ message PeerAnnouncement {
   optional string gpu_compute_tflops_fp16 = 31;     // Deprecated in v0.60.0: prefer hardware.gpus[].compute_tflops_fp16
   optional string gpu_reserved_bytes = 32;          // Deprecated in v0.60.0: prefer hardware.gpus[].reserved_bytes
   optional HardwareInfo hardware = 33;              // Introduced in v0.60.0; preferred structured hardware inventory
+  repeated string explicit_model_interests = 34;    // Canonical model refs this node explicitly wants the mesh to consider
 }
 
 message HardwareInfo {

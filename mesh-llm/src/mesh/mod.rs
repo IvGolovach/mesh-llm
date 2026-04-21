@@ -663,6 +663,8 @@ pub(crate) struct PeerAnnouncement {
     /// All GGUF filenames on disk in managed or legacy local storage (for mesh catalog)
     pub(crate) available_models: Vec<String>,
     pub(crate) requested_models: Vec<String>,
+    /// Canonical model refs this node explicitly wants the mesh to consider.
+    pub(crate) explicit_model_interests: Vec<String>,
     pub(crate) version: Option<String>,
     pub(crate) model_demand: HashMap<String, ModelDemand>,
     pub(crate) mesh_id: Option<String>,
@@ -702,6 +704,8 @@ pub struct PeerInfo {
     pub available_models: Vec<String>,
     /// Models this node has requested the mesh to serve
     pub requested_models: Vec<String>,
+    /// Canonical model refs this node explicitly wants the mesh to consider.
+    pub explicit_model_interests: Vec<String>,
     /// Last time we directly communicated with this peer (gossip, heartbeat, tunnel).
     /// Only updated by direct bi-directional gossip exchanges, heartbeat probes,
     /// and inbound connections — never by transitive mentions.
@@ -770,6 +774,7 @@ impl PeerInfo {
             hosted_models_known: ann.hosted_models.is_some(),
             available_models: ann.available_models.clone(),
             requested_models: ann.requested_models.clone(),
+            explicit_model_interests: ann.explicit_model_interests.clone(),
             last_seen: std::time::Instant::now(),
             last_mentioned: std::time::Instant::now(),
             moe_recovered_at: None,
@@ -981,6 +986,7 @@ pub struct Node {
     llama_ready: Arc<Mutex<bool>>,
     available_models: Arc<Mutex<Vec<String>>>,
     requested_models: Arc<Mutex<Vec<String>>>,
+    explicit_model_interests: Arc<Mutex<Vec<String>>>,
     /// Mesh-wide demand map — merged from gossip + local API requests.
     /// This is the single source of truth for "what does the mesh want?"
     model_demand: Arc<std::sync::Mutex<HashMap<String, ModelDemand>>>,
@@ -1425,6 +1431,7 @@ impl Node {
             llama_ready: Arc::new(Mutex::new(false)),
             available_models: Arc::new(Mutex::new(Vec::new())),
             requested_models: Arc::new(Mutex::new(Vec::new())),
+            explicit_model_interests: Arc::new(Mutex::new(Vec::new())),
             model_demand: Arc::new(std::sync::Mutex::new(HashMap::new())),
             mesh_id: Arc::new(Mutex::new(None)),
             accepting: Arc::new((
@@ -1524,6 +1531,7 @@ impl Node {
             llama_ready: Arc::new(Mutex::new(false)),
             available_models: Arc::new(Mutex::new(Vec::new())),
             requested_models: Arc::new(Mutex::new(Vec::new())),
+            explicit_model_interests: Arc::new(Mutex::new(Vec::new())),
             model_demand: Arc::new(std::sync::Mutex::new(HashMap::new())),
             mesh_id: Arc::new(Mutex::new(None)),
             accepting: Arc::new((
@@ -2159,6 +2167,10 @@ impl Node {
 
     pub async fn requested_models(&self) -> Vec<String> {
         self.requested_models.lock().await.clone()
+    }
+
+    pub async fn set_explicit_model_interests(&self, model_refs: Vec<String>) {
+        *self.explicit_model_interests.lock().await = model_refs;
     }
 
     async fn forward_plugin_event(&self, event: crate::plugin::PluginMeshEvent) -> Result<()> {

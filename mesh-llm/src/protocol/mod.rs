@@ -534,6 +534,7 @@ mod tests {
             hosted_models_known: false,
             available_models: vec![],
             requested_models: vec![],
+            explicit_model_interests: vec![],
             last_seen: std::time::Instant::now(),
             last_mentioned: std::time::Instant::now(),
             moe_recovered_at: None,
@@ -1198,6 +1199,7 @@ mod tests {
             hosted_models: None,
             available_models: vec![],
             requested_models: vec![],
+            explicit_model_interests: vec![],
             version: None,
             model_demand: HashMap::new(),
             mesh_id: None,
@@ -1264,6 +1266,7 @@ mod tests {
             hosted_models: Some(vec!["Qwen".to_string()]),
             available_models: vec![],
             requested_models: vec![],
+            explicit_model_interests: vec![],
             version: Some("0.52.0".to_string()),
             model_demand: HashMap::new(),
             mesh_id: Some("mesh-proto-roundtrip".to_string()),
@@ -1331,6 +1334,59 @@ mod tests {
     }
 
     #[test]
+    fn test_proto_round_trip_preserves_explicit_model_interests() {
+        let peer_id = EndpointId::from(SecretKey::from_bytes(&[0xBD; 32]).public());
+        let ann = super::PeerAnnouncement {
+            addr: EndpointAddr {
+                id: peer_id,
+                addrs: Default::default(),
+            },
+            role: super::NodeRole::Worker,
+            models: vec!["Qwen3-Coder-Next-Q4_K_M".to_string()],
+            vram_bytes: 0,
+            model_source: None,
+            serving_models: vec![],
+            hosted_models: None,
+            available_models: vec![],
+            requested_models: vec![],
+            explicit_model_interests: vec![
+                "Qwen3-Coder-Next-Q4_K_M".to_string(),
+                "Qwen3.5-9B-Q4_K_M".to_string(),
+            ],
+            version: None,
+            model_demand: HashMap::new(),
+            mesh_id: None,
+            gpu_name: None,
+            hostname: None,
+            is_soc: None,
+            gpu_vram: None,
+            gpu_reserved_bytes: None,
+            gpu_mem_bandwidth_gbps: None,
+            gpu_compute_tflops_fp32: None,
+            gpu_compute_tflops_fp16: None,
+            available_model_metadata: vec![],
+            experts_summary: None,
+            available_model_sizes: HashMap::new(),
+            served_model_descriptors: vec![],
+            served_model_runtime: vec![],
+            owner_attestation: None,
+        };
+
+        let proto_pa = local_ann_to_proto_ann(&ann);
+        assert_eq!(
+            proto_pa.explicit_model_interests,
+            ann.explicit_model_interests
+        );
+
+        let (_, roundtripped) =
+            proto_ann_to_local(&proto_pa).expect("proto_ann_to_local must succeed");
+        assert_eq!(
+            roundtripped.explicit_model_interests,
+            ann.explicit_model_interests
+        );
+    }
+
+    #[test]
     fn test_proto_backward_compat_missing_tflops() {
         let peer_id = EndpointId::from(SecretKey::from_bytes(&[0xCD; 32]).public());
         let proto_pa = crate::proto::node::PeerAnnouncement {
@@ -1362,6 +1418,20 @@ mod tests {
         );
         assert_eq!(roundtripped.gpu_compute_tflops_fp32, None);
         assert_eq!(roundtripped.gpu_compute_tflops_fp16, None);
+    }
+
+    #[test]
+    fn test_proto_backward_compat_missing_explicit_model_interests_defaults_empty() {
+        let peer_id = EndpointId::from(SecretKey::from_bytes(&[0xCF; 32]).public());
+        let proto_pa = crate::proto::node::PeerAnnouncement {
+            endpoint_id: peer_id.as_bytes().to_vec(),
+            role: NodeRole::Worker as i32,
+            ..Default::default()
+        };
+
+        let (_, roundtripped) =
+            proto_ann_to_local(&proto_pa).expect("proto_ann_to_local must succeed");
+        assert!(roundtripped.explicit_model_interests.is_empty());
     }
 
     #[test]

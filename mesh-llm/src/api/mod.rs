@@ -7,6 +7,7 @@
 //!   GET  /api/model-interests — local explicit-interest readback (JSON)
 //!   POST /api/model-interests — register local explicit interest for a canonical model ref
 //!   DELETE /api/model-interests/{model_ref} — clear local explicit interest
+//!   GET  /api/model-targets — ranked mesh-wide target view (JSON)
 //!   GET  /api/runtime   — local model state (JSON)
 //!   GET  /api/runtime/endpoints — registered plugin endpoint state (JSON)
 //!   GET  /api/runtime/processes — local inference process state (JSON)
@@ -43,14 +44,16 @@ use self::routes::dispatch_request;
 use self::state::ApiInner;
 use self::status::{
     build_gpus, build_ownership_payload, build_runtime_processes_payload,
-    build_runtime_status_payload, LocalInstance, MeshModelPayload, NodeState, PeerPayload,
-    RuntimeProcessesPayload, RuntimeStatusPayload, StatusPayload, WakeableNode, WakeableNodeState,
+    build_runtime_status_payload, LocalInstance, MeshModelPayload, ModelTargetPayload, NodeState,
+    PeerPayload, RuntimeProcessesPayload, RuntimeStatusPayload, StatusPayload, WakeableNode,
+    WakeableNodeState,
 };
 use crate::inference::election;
 use crate::mesh;
 use crate::network::{affinity, nostr, proxy};
 use crate::plugin;
 use crate::runtime::wakeable::{WakeableInventoryEntry, WakeableState};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{watch, Mutex};
@@ -109,6 +112,24 @@ struct HttpRouteStats {
     mesh_vram_gb: f64,
 }
 
+#[derive(Clone, Debug, Default)]
+struct ModelTargetAccumulator {
+    model_ref: String,
+    model_name: Option<String>,
+    display_name: String,
+    explicit_interest_count: usize,
+    request_count: u64,
+    last_active_secs_ago: Option<u64>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct ModelTargetLookup {
+    targets: Vec<ModelTargetPayload>,
+    by_model_name: HashMap<String, ModelTargetPayload>,
+    by_model_ref: HashMap<String, ModelTargetPayload>,
+    wanted_model_refs: Vec<String>,
+}
+
 fn http_route_stats(
     model_name: &str,
     peers: &[mesh::PeerInfo],
@@ -153,6 +174,48 @@ fn http_route_stats(
         active_nodes,
         mesh_vram_gb,
     }
+}
+
+fn default_model_target_identity(model_ref: &str) -> (String, Option<String>) {
+    if let Some(model) = crate::models::find_catalog_model_exact(model_ref) {
+        return (
+            crate::models::installed_model_display_name(&model.name),
+            Some(model.name.to_string()),
+        );
+    }
+    if !model_ref.contains('/') && !model_ref.contains(':') {
+        return (
+            crate::models::installed_model_display_name(model_ref),
+            Some(model_ref.to_string()),
+        );
+    }
+    (model_ref.to_string(), None)
+}
+
+fn ensure_model_target_accumulator<'a>(
+    accumulators: &'a mut HashMap<String, ModelTargetAccumulator>,
+    model_ref: &str,
+    model_name_by_ref: &HashMap<String, String>,
+    display_name_by_ref: &HashMap<String, String>,
+) -> &'a mut ModelTargetAccumulator {
+    accumulators
+        .entry(model_ref.to_string())
+        .or_insert_with(|| {
+            let (default_display_name, default_model_name) =
+                default_model_target_identity(model_ref);
+            ModelTargetAccumulator {
+                model_ref: model_ref.to_string(),
+                model_name: model_name_by_ref
+                    .get(model_ref)
+                    .cloned()
+                    .or(default_model_name),
+                display_name: display_name_by_ref
+                    .get(model_ref)
+                    .cloned()
+                    .unwrap_or(default_display_name),
+                ..Default::default()
+            }
+        })
 }
 
 fn likely_vision_model(name: &str, description: Option<&str>) -> bool {
@@ -284,45 +347,224 @@ impl MeshApi {
         interests
     }
 
+    async fn sync_node_model_interests(&self, model_refs: Vec<String>) {
+        let node = self.inner.lock().await.node.clone();
+        node.set_explicit_model_interests(model_refs).await;
+        node.regossip().await;
+    }
+
     pub(super) async fn upsert_model_interest(
         &self,
         model_ref: String,
         submission_source: Option<String>,
     ) -> (LocalModelInterest, bool) {
         let now = current_unix_secs();
-        let mut inner = self.inner.lock().await;
-        match inner.model_interests.entry(model_ref.clone()) {
-            std::collections::hash_map::Entry::Occupied(mut entry) => {
-                let existing = entry.get().clone();
-                let updated = LocalModelInterest {
-                    model_ref,
-                    submission_source: submission_source.or(existing.submission_source),
-                    created_at_unix: existing.created_at_unix,
-                    updated_at_unix: now,
-                };
-                entry.insert(updated.clone());
-                (updated, false)
+        let (interest, created, synced_refs) = {
+            let mut inner = self.inner.lock().await;
+            match inner.model_interests.entry(model_ref.clone()) {
+                std::collections::hash_map::Entry::Occupied(mut entry) => {
+                    let existing = entry.get().clone();
+                    let updated = LocalModelInterest {
+                        model_ref,
+                        submission_source: submission_source.or(existing.submission_source),
+                        created_at_unix: existing.created_at_unix,
+                        updated_at_unix: now,
+                    };
+                    entry.insert(updated.clone());
+                    let synced_refs = inner.model_interests.keys().cloned().collect();
+                    (updated, false, synced_refs)
+                }
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    let created = LocalModelInterest {
+                        model_ref,
+                        submission_source,
+                        created_at_unix: now,
+                        updated_at_unix: now,
+                    };
+                    entry.insert(created.clone());
+                    let synced_refs = inner.model_interests.keys().cloned().collect();
+                    (created, true, synced_refs)
+                }
             }
-            std::collections::hash_map::Entry::Vacant(entry) => {
-                let created = LocalModelInterest {
-                    model_ref,
-                    submission_source,
-                    created_at_unix: now,
-                    updated_at_unix: now,
-                };
-                entry.insert(created.clone());
-                (created, true)
-            }
-        }
+        };
+        self.sync_node_model_interests(synced_refs).await;
+        (interest, created)
     }
 
     pub(super) async fn remove_model_interest(&self, model_ref: &str) -> bool {
-        self.inner
-            .lock()
-            .await
-            .model_interests
-            .remove(model_ref)
-            .is_some()
+        let (removed, synced_refs) = {
+            let mut inner = self.inner.lock().await;
+            let removed = inner.model_interests.remove(model_ref).is_some();
+            let synced_refs = inner.model_interests.keys().cloned().collect();
+            (removed, synced_refs)
+        };
+        self.sync_node_model_interests(synced_refs).await;
+        removed
+    }
+
+    async fn model_targets(&self) -> Vec<ModelTargetPayload> {
+        self.model_target_lookup().await.targets
+    }
+
+    async fn wanted_model_refs(&self) -> Vec<String> {
+        self.model_target_lookup().await.wanted_model_refs
+    }
+
+    async fn model_target_lookup(&self) -> ModelTargetLookup {
+        let node = self.inner.lock().await.node.clone();
+        let local_interests = self.model_interests().await;
+        let all_peers = node.peers().await;
+        let catalog = node.mesh_catalog_entries().await;
+        let served = node.models_being_served().await;
+        let active_demand = node.active_demand().await;
+        let my_hosted_models = node.hosted_models().await;
+        let my_vram_gb = node.vram_bytes() as f64 / 1e9;
+        let now_ts = current_unix_secs();
+
+        let mut canonical_ref_by_model_name = HashMap::new();
+        let mut model_name_by_ref = HashMap::new();
+        let mut display_name_by_ref = HashMap::new();
+        let mut serving_node_count_by_ref = HashMap::new();
+
+        for entry in &catalog {
+            let model_name = entry.model_name.clone();
+            let model_ref = entry
+                .descriptor
+                .as_ref()
+                .and_then(|descriptor| descriptor.identity.canonical_ref.clone())
+                .unwrap_or_else(|| model_name.clone());
+            canonical_ref_by_model_name.insert(model_name.clone(), model_ref.clone());
+            model_name_by_ref
+                .entry(model_ref.clone())
+                .or_insert_with(|| model_name.clone());
+            display_name_by_ref
+                .entry(model_ref.clone())
+                .or_insert_with(|| crate::models::installed_model_display_name(&model_name));
+            let serving_node_count = if served.contains(&model_name) {
+                http_route_stats(
+                    &model_name,
+                    &all_peers,
+                    &my_hosted_models,
+                    node.hostname.as_deref(),
+                    my_vram_gb,
+                )
+                .node_count
+            } else {
+                0
+            };
+            serving_node_count_by_ref.insert(model_ref, serving_node_count);
+        }
+
+        let mut accumulators: HashMap<String, ModelTargetAccumulator> = HashMap::new();
+        for interest in &local_interests {
+            let entry = ensure_model_target_accumulator(
+                &mut accumulators,
+                &interest.model_ref,
+                &model_name_by_ref,
+                &display_name_by_ref,
+            );
+            entry.explicit_interest_count += 1;
+        }
+        for peer in &all_peers {
+            for model_ref in &peer.explicit_model_interests {
+                let entry = ensure_model_target_accumulator(
+                    &mut accumulators,
+                    model_ref,
+                    &model_name_by_ref,
+                    &display_name_by_ref,
+                );
+                entry.explicit_interest_count += 1;
+            }
+        }
+        for (model_name, demand) in active_demand {
+            let model_ref = canonical_ref_by_model_name
+                .get(&model_name)
+                .cloned()
+                .unwrap_or_else(|| model_name.clone());
+            let entry = ensure_model_target_accumulator(
+                &mut accumulators,
+                &model_ref,
+                &model_name_by_ref,
+                &display_name_by_ref,
+            );
+            if entry.model_name.is_none() {
+                entry.model_name = Some(model_name.clone());
+            }
+            entry.request_count = demand.request_count;
+            entry.last_active_secs_ago = Some(now_ts.saturating_sub(demand.last_active));
+        }
+
+        let mut targets: Vec<ModelTargetPayload> = accumulators
+            .into_values()
+            .map(|acc| {
+                let serving_node_count = serving_node_count_by_ref
+                    .get(&acc.model_ref)
+                    .copied()
+                    .unwrap_or(0);
+                ModelTargetPayload {
+                    rank: 0,
+                    model_ref: acc.model_ref,
+                    display_name: acc.display_name,
+                    model_name: acc.model_name,
+                    explicit_interest_count: acc.explicit_interest_count,
+                    request_count: acc.request_count,
+                    last_active_secs_ago: acc.last_active_secs_ago,
+                    serving_node_count,
+                    wanted: serving_node_count == 0,
+                }
+            })
+            .collect();
+
+        targets.sort_by(|left, right| {
+            right
+                .request_count
+                .cmp(&left.request_count)
+                .then_with(|| {
+                    right
+                        .explicit_interest_count
+                        .cmp(&left.explicit_interest_count)
+                })
+                .then_with(|| right.wanted.cmp(&left.wanted))
+                .then_with(
+                    || match (left.last_active_secs_ago, right.last_active_secs_ago) {
+                        (Some(left_age), Some(right_age)) => left_age.cmp(&right_age),
+                        (Some(_), None) => std::cmp::Ordering::Less,
+                        (None, Some(_)) => std::cmp::Ordering::Greater,
+                        (None, None) => std::cmp::Ordering::Equal,
+                    },
+                )
+                .then_with(|| {
+                    left.display_name
+                        .to_ascii_lowercase()
+                        .cmp(&right.display_name.to_ascii_lowercase())
+                })
+                .then_with(|| left.model_ref.cmp(&right.model_ref))
+        });
+
+        for (idx, target) in targets.iter_mut().enumerate() {
+            target.rank = idx + 1;
+        }
+
+        let wanted_model_refs = targets
+            .iter()
+            .filter(|target| target.wanted)
+            .map(|target| target.model_ref.clone())
+            .collect::<Vec<_>>();
+        let mut by_model_name = HashMap::new();
+        let mut by_model_ref = HashMap::new();
+        for target in &targets {
+            if let Some(model_name) = target.model_name.as_ref() {
+                by_model_name.insert(model_name.clone(), target.clone());
+            }
+            by_model_ref.insert(target.model_ref.clone(), target.clone());
+        }
+
+        ModelTargetLookup {
+            targets,
+            by_model_name,
+            by_model_ref,
+            wanted_model_refs,
+        }
     }
 
     pub async fn set_primary_backend(&self, backend: String) {
@@ -487,6 +729,7 @@ impl MeshApi {
         let catalog = node.mesh_catalog_entries().await;
         let served = node.models_being_served().await;
         let active_demand = node.active_demand().await;
+        let model_target_lookup = self.model_target_lookup().await;
         // Per-model routing metrics are current-node-only observations. They
         // help the management API explain recent local routing behavior without
         // claiming mesh-wide totals.
@@ -517,6 +760,14 @@ impl MeshApi {
                 let name = &entry.model_name;
                 let descriptor = entry.descriptor.as_ref();
                 let identity = descriptor.map(|descriptor| &descriptor.identity);
+                let target_summary = model_target_lookup.by_model_name.get(name).or_else(|| {
+                    identity.and_then(|identity| {
+                        identity
+                            .canonical_ref
+                            .as_ref()
+                            .and_then(|model_ref| model_target_lookup.by_model_ref.get(model_ref))
+                    })
+                });
                 let catalog_entry = find_catalog_model(name);
                 let is_warm = served.contains(name);
                 let local_known = local_model_names.contains(name)
@@ -775,6 +1026,10 @@ impl MeshApi {
                     draft_model,
                     request_count,
                     last_active_secs_ago,
+                    target_rank: target_summary.map(|target| target.rank),
+                    explicit_interest_count: target_summary
+                        .map(|target| target.explicit_interest_count),
+                    wanted: target_summary.map(|target| target.wanted),
                     routing_metrics,
                     source_page_url,
                     source_ref,
@@ -963,6 +1218,7 @@ impl MeshApi {
         let my_models = node.models().await;
         let my_available_models = node.available_models().await;
         let my_requested_models = node.requested_models().await;
+        let wanted_model_refs = self.wanted_model_refs().await;
         let peers: Vec<PeerPayload> = all_peers
             .iter()
             .map(|p| PeerPayload {
@@ -1044,6 +1300,7 @@ impl MeshApi {
             models: my_models,
             available_models: my_available_models,
             requested_models: my_requested_models,
+            wanted_model_refs,
             serving_models: my_serving_models,
             hosted_models: my_hosted_models,
             draft_name,
@@ -1807,6 +2064,7 @@ mod tests {
             hosted_models_known: false,
             available_models: vec![],
             requested_models: vec![],
+            explicit_model_interests: vec![],
             last_seen: Instant::now(),
             last_mentioned: Instant::now(),
             moe_recovered_at: None,
@@ -2066,6 +2324,7 @@ mod tests {
             hosted_models_known,
             available_models: Vec::new(),
             requested_models: Vec::new(),
+            explicit_model_interests: Vec::new(),
             last_seen: std::time::Instant::now(),
             last_mentioned: std::time::Instant::now(),
             moe_recovered_at: None,
@@ -2748,6 +3007,106 @@ mod tests {
         );
 
         handle.abort();
+    }
+
+    #[tokio::test]
+    async fn test_api_model_targets_combine_interest_demand_and_serving_visibility() {
+        let state = build_test_mesh_api().await;
+        let node = {
+            let inner = state.inner.lock().await;
+            inner.node.clone()
+        };
+        let model_name = crate::models::catalog::MODEL_CATALOG[0].name.clone();
+        let (interest, _) = state
+            .upsert_model_interest(model_name.clone(), Some("ui".to_string()))
+            .await;
+
+        node.record_request(&model_name);
+
+        let mut peer = make_test_peer(
+            0x44,
+            mesh::NodeRole::Host { http_port: 9337 },
+            vec![model_name.as_str()],
+            vec![model_name.as_str()],
+            true,
+        );
+        peer.explicit_model_interests = vec![interest.model_ref.clone()];
+        node.insert_test_peer(peer).await;
+
+        let (addr, handle) = spawn_management_test_server(state).await;
+        let response = send_management_request(
+            addr,
+            "GET /api/model-targets HTTP/1.1\r\nHost: localhost\r\n\r\n".into(),
+        )
+        .await;
+
+        assert!(response.starts_with("HTTP/1.1 200"));
+        let payload = json_body(&response);
+        let targets = payload["model_targets"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        let target = targets
+            .into_iter()
+            .find(|entry| entry["model_ref"] == interest.model_ref)
+            .expect("target for explicit interest present");
+        assert_eq!(target["rank"], json!(1));
+        assert_eq!(target["explicit_interest_count"], json!(2));
+        assert_eq!(target["request_count"], json!(1));
+        assert_eq!(target["serving_node_count"], json!(1));
+        assert_eq!(target["wanted"], json!(false));
+
+        handle.abort();
+    }
+
+    #[tokio::test]
+    async fn test_api_status_and_models_surface_wanted_targets() {
+        let state = build_test_mesh_api().await;
+        let node = {
+            let inner = state.inner.lock().await;
+            inner.node.clone()
+        };
+        let model_name = crate::models::catalog::MODEL_CATALOG[0].name.clone();
+        let (interest, _) = state
+            .upsert_model_interest(model_name.clone(), Some("ui".to_string()))
+            .await;
+        node.set_requested_models(vec![model_name.clone()]).await;
+
+        let (status_addr, status_handle) = spawn_management_test_server(state.clone()).await;
+        let status_response = send_management_request(
+            status_addr,
+            "GET /api/status HTTP/1.1\r\nHost: localhost\r\n\r\n".into(),
+        )
+        .await;
+        assert!(status_response.starts_with("HTTP/1.1 200"));
+        let status_payload = json_body(&status_response);
+        assert_eq!(
+            status_payload["wanted_model_refs"],
+            json!([interest.model_ref.clone()])
+        );
+        status_handle.abort();
+
+        let (models_addr, models_handle) = spawn_management_test_server(state).await;
+        let models_response = send_management_request(
+            models_addr,
+            "GET /api/models HTTP/1.1\r\nHost: localhost\r\n\r\n".into(),
+        )
+        .await;
+        assert!(models_response.starts_with("HTTP/1.1 200"));
+        let models_payload = json_body(&models_response);
+        let models = models_payload["mesh_models"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        let model = models
+            .into_iter()
+            .find(|entry| entry["name"] == model_name)
+            .expect("catalog model present");
+        assert_eq!(model["target_rank"], json!(1));
+        assert_eq!(model["explicit_interest_count"], json!(1));
+        assert_eq!(model["wanted"], json!(true));
+
+        models_handle.abort();
     }
 
     #[test]

@@ -205,6 +205,7 @@ and the embedded web dashboard.
 | `/api/search` | GET | Search the built-in catalog or Hugging Face with canonical model refs |
 | `/api/model-interests` | GET, POST | Read back or register local explicit interest keyed by canonical model refs |
 | `/api/model-interests/{model_ref}` | DELETE | Clear local explicit interest for one canonical model ref |
+| `/api/model-targets` | GET | Ranked advisory target view combining explicit interest and observed request demand |
 | `/api/events` | GET | SSE stream of status updates (2s interval + on change) |
 | `/api/discover` | GET | Browse Nostr-published meshes |
 | `/api/join` | POST | Join a mesh by invite token `{"token":"..."}` |
@@ -217,6 +218,10 @@ provides the same read-only model search surface to operators and future UI
 flows without requiring CLI output parsing. `/api/model-interests` is
 intentionally local-node-only in phase 2: it stores explicit interest on the
 connected host without changing mesh gossip or runtime demand semantics yet.
+`/api/model-targets` is the phase 3 read-only mesh-derived view: it combines
+local and propagated explicit interest with recent request demand into a ranked
+advisory target list without automatically loading, unloading, or pinning
+models.
 Mesh management works without the HTML via curl/scripts.
 
 Always enabled on port 3131 (configurable with `--console <port>`).

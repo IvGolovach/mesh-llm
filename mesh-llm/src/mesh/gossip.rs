@@ -31,6 +31,7 @@ pub(super) fn peer_meaningfully_changed(old: &PeerInfo, new: &PeerInfo) -> bool 
         || old.hosted_models != new.hosted_models
         || old.available_models != new.available_models
         || old.requested_models != new.requested_models
+        || old.explicit_model_interests != new.explicit_model_interests
         || old.served_model_descriptors != new.served_model_descriptors
         || old.served_model_runtime != new.served_model_runtime
         || old.version != new.version
@@ -87,6 +88,7 @@ pub(super) fn apply_transitive_ann(
     existing.models = ann.models.clone();
     existing.available_models.clear();
     existing.requested_models = ann.requested_models.clone();
+    existing.explicit_model_interests = ann.explicit_model_interests.clone();
     existing.owner_attestation = ann.owner_attestation.clone();
     if ann.model_source.is_some() {
         existing.model_source = ann.model_source.clone();
@@ -435,6 +437,7 @@ impl Node {
             existing.hosted_models_known = ann.hosted_models.is_some();
             existing.available_models.clear();
             existing.requested_models = ann.requested_models.clone();
+            existing.explicit_model_interests = ann.explicit_model_interests.clone();
             existing.last_seen = now;
             if recovered {
                 existing.moe_recovered_at = Some(now);
@@ -630,6 +633,7 @@ impl Node {
         let my_hosted_models = self.hosted_models.lock().await.clone();
         let my_available = self.available_models.lock().await.clone();
         let my_requested = self.requested_models.lock().await.clone();
+        let my_explicit_interests = self.explicit_model_interests.lock().await.clone();
         let my_mesh_id = self.mesh_id.lock().await.clone();
         let my_owner_attestation = self.owner_attestation.lock().await.clone();
         let my_demand = self.get_demand();
@@ -656,6 +660,7 @@ impl Node {
                     hosted_models: p.hosted_models_known.then(|| p.hosted_models.clone()),
                     available_models: p.available_models.clone(),
                     requested_models: p.requested_models.clone(),
+                    explicit_model_interests: p.explicit_model_interests.clone(),
                     version: p.version.clone(),
                     model_demand: HashMap::new(),
                     mesh_id: None,
@@ -686,6 +691,7 @@ impl Node {
             hosted_models: Some(my_hosted_models),
             available_models: my_available,
             requested_models: my_requested,
+            explicit_model_interests: my_explicit_interests,
             version: Some(crate::VERSION.to_string()),
             model_demand: my_demand,
             mesh_id: my_mesh_id,
