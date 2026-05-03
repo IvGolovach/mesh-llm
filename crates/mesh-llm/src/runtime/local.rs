@@ -1,3 +1,6 @@
+use super::context_planning::{
+    plan_runtime_resources, RuntimeResourcePlan, RuntimeResourcePlanInput,
+};
 use crate::api;
 use crate::inference::{election, skippy};
 use crate::mesh;
@@ -54,7 +57,7 @@ pub(super) struct LocalRuntimeModelStartSpec<'a> {
     pub(super) mmproj_override: Option<&'a Path>,
     pub(super) ctx_size_override: Option<u32>,
     pub(super) pinned_gpu: Option<&'a crate::runtime::StartupPinnedGpuTarget>,
-    pub(super) slots: usize,
+    pub(super) parallel_override: Option<usize>,
 }
 
 pub(super) fn resolved_model_name(path: &Path) -> String {
@@ -203,19 +206,30 @@ pub(super) async fn start_runtime_local_model(
         "runtime load only supports models that fit locally on this node"
     );
 
-    start_runtime_skippy_model(spec, model_name).await
+    let compact_meta = models::gguf::scan_gguf_compact_meta(spec.model_path);
+    let plan = plan_runtime_resources(RuntimeResourcePlanInput {
+        ctx_size_override: spec.ctx_size_override,
+        parallel_override: spec.parallel_override,
+        model_bytes,
+        vram_bytes: my_vram,
+        metadata: compact_meta.as_ref(),
+        kv_cache_quant: models::gguf::GgufKvCacheQuant::f16(),
+    });
+
+    start_runtime_skippy_model(spec, model_name, plan).await
 }
 
 async fn start_runtime_skippy_model(
     spec: LocalRuntimeModelStartSpec<'_>,
     model_name: String,
+    plan: RuntimeResourcePlan,
 ) -> Result<(
     String,
     LocalRuntimeModelHandle,
     tokio::sync::oneshot::Receiver<()>,
 )> {
     let port = alloc_local_port().await?;
-    let context_length = spec.ctx_size_override.unwrap_or(4096);
+    let context_length = plan.context_length;
     let projector_path = spec
         .mmproj_override
         .map(Path::to_path_buf)
@@ -223,7 +237,7 @@ async fn start_runtime_skippy_model(
         .filter(|path| path.exists());
     let mut options = skippy::SkippyModelLoadOptions::for_direct_gguf(&model_name, spec.model_path)
         .with_ctx_size(context_length)
-        .with_generation_concurrency(spec.slots);
+        .with_generation_concurrency(plan.slots);
     if let Some(projector_path) = projector_path {
         options = options.with_projector_path(projector_path);
     }
@@ -248,7 +262,7 @@ async fn start_runtime_skippy_model(
             port: http.port(),
             backend: "skippy".into(),
             context_length,
-            slots: spec.slots,
+            slots: plan.slots,
             inner: LocalRuntimeBackendHandle::Skippy {
                 model: skippy_model,
                 http,

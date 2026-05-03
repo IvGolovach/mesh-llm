@@ -1,4 +1,6 @@
 use super::*;
+#[cfg(target_os = "macos")]
+use std::{net::Ipv4Addr, os::fd::AsRawFd, ptr};
 
 pub(super) fn downstream_source_ip(config: &StageConfig) -> Result<Option<IpAddr>> {
     let bind_addr = config
