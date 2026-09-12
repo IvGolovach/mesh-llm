@@ -22,6 +22,21 @@ a structured `unsupported` error. OCR and speech recognition use causal trunks,
 but their projector remains local to the trunk; they are not claims of a
 distributed projector implementation.
 
+## Mixed-version routing
+
+A model name can be advertised by several nodes running different versions.
+Model discovery accepts any compatible advertisement, but each serving target
+must independently advertise the workload required by the endpoint. The host
+router and passive-client proxy exclude incompatible targets before context
+ranking, cache affinity, reservation spreading, and retries. One current peer
+does not grant its endpoints to a legacy peer serving the same model name.
+
+Absent workload metadata remains compatible with ordinary generation requests,
+not with embedding, rerank, speech synthesis, or audio-upload endpoints. Audio
+uploads additionally require runtime-verified audio support in the same target's
+model descriptor. Unsupported targets are not restored by an availability
+fallback or a cached automatic model choice.
+
 ## Embeddings
 
 The request accepts a string, an array of strings, a token array, or an array of

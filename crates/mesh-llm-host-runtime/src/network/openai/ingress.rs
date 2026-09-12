@@ -7,6 +7,9 @@ use crate::network::openai::auto_route;
 use crate::network::openai::automatic;
 use crate::network::openai::client_stream::ClientStream;
 use crate::network::openai::transport as proxy;
+use crate::network::openai::workload_routing::{
+    self, is_audio_upload_path, model_satisfies_request_workload, request_workload_class,
+};
 use crate::network::router;
 use crate::plugin::openai_exchange::{
     OpenAiExchangeChannel, OpenAiExchangeDispatchPath, OpenAiExchangeEnvelope,
@@ -299,50 +302,33 @@ async fn resolve_auto_routed_model(
         },
         router::classify,
     );
-    let media = body_json.map_or_else(
-        || router::MediaRequirements {
-            has_media: is_audio_upload_path(&request.client_path),
-            needs_vision: false,
-            needs_audio: is_audio_upload_path(&request.client_path),
-        },
-        router::media_requirements,
-    );
-    let mut available_models =
+    let media = workload_routing::request_media(&request.client_path, body_json);
+    let available_models =
         collect_available_models_for_auto_route(node, targets, plugin_manager).await;
-    if let Some(workload) = requested_workload {
-        available_models.retain(|model| {
-            model_satisfies_request_workload(model, workload, &request.client_path, descriptors)
-        });
-        if available_models.is_empty() {
-            return AutoRouteResolution::WorkloadUnsupported(workload);
-        }
+    let available = workload_routing::routing_candidates(
+        node,
+        &available_models,
+        &request.client_path,
+        descriptors,
+    );
+    if available.is_empty()
+        && let Some(workload) = requested_workload
+    {
+        return AutoRouteResolution::WorkloadUnsupported(workload);
     }
-    let metrics = node.routing_metrics();
-    let available: Vec<router::RoutingCandidate<'_>> = available_models
-        .iter()
-        .map(|name| {
-            let caps = proxy::capabilities_for_model(name, descriptors);
-            let (tps_hint, throughput_samples) = metrics
-                .tps_for_model(name)
-                .map(|(t, s)| (Some(t), s))
-                .unwrap_or((None, 0));
-            router::RoutingCandidate {
-                name: name.as_str(),
-                caps,
-                parameter_count_b: proxy::descriptor_metadata_for_model(name, descriptors)
-                    .and_then(|metadata| metadata.parameter_count_b),
-                tps_hint,
-                throughput_samples,
-            }
-        })
-        .collect();
     let Some(available) = router::filter_media_compatible_candidates(&available, &media) else {
         proxy::release_request_objects(node, &request.request_object_request_ids).await;
         return AutoRouteResolution::MediaUnsupported;
     };
-    let available =
-        auto_route_pool_for_ready_models(node, targets, required_tokens, &available, affinity)
-            .await;
+    let available = auto_route_pool_for_ready_models(
+        node,
+        targets,
+        required_tokens,
+        &request.client_path,
+        &available,
+        affinity,
+    )
+    .await;
 
     let effective_model = router::pick_model_classified(&classification, &available).map(|name| {
         tracing::info!(
@@ -360,44 +346,11 @@ async fn resolve_auto_routed_model(
     }
 }
 
-fn is_audio_upload_path(path: &str) -> bool {
-    matches!(
-        path.split('?').next().unwrap_or(path),
-        "/v1/audio/transcriptions" | "/v1/audio/translations"
-    )
-}
-
-fn model_satisfies_request_workload(
-    model: &str,
-    workload: mesh::ModelWorkloadClass,
-    path: &str,
-    descriptors: &[mesh::ServedModelDescriptor],
-) -> bool {
-    if is_audio_upload_path(path) {
-        proxy::model_satisfies_audio_upload_workload(model, descriptors)
-    } else {
-        proxy::model_satisfies_workload_class(model, workload, descriptors)
-    }
-}
-
-fn request_workload_class(path: &str) -> Option<mesh::ModelWorkloadClass> {
-    match path.split('?').next().unwrap_or(path) {
-        "/v1/chat/completions"
-        | "/v1/completions"
-        | "/v1/responses"
-        | "/v1/audio/transcriptions"
-        | "/v1/audio/translations" => Some(mesh::ModelWorkloadClass::CausalGeneration),
-        "/v1/embeddings" => Some(mesh::ModelWorkloadClass::Embedding),
-        "/v1/rerank" => Some(mesh::ModelWorkloadClass::Rerank),
-        "/v1/audio/speech" => Some(mesh::ModelWorkloadClass::SpeechSynthesis),
-        _ => None,
-    }
-}
-
 async fn auto_route_pool_for_ready_models<'a>(
     node: &mesh::Node,
     targets: &election::ModelTargets,
     required_tokens: Option<u32>,
+    request_path: &str,
     available: &[router::RoutingCandidate<'a>],
     affinity: &affinity::AffinityRouter,
 ) -> Vec<router::RoutingCandidate<'a>> {
@@ -408,6 +361,7 @@ async fn auto_route_pool_for_ready_models<'a>(
             targets,
             candidate.name,
             required_tokens,
+            request_path,
             affinity,
         )
         .await
@@ -423,6 +377,7 @@ async fn auto_route_model_has_ready_ingress_target(
     targets: &election::ModelTargets,
     model: &str,
     required_tokens: Option<u32>,
+    request_path: &str,
     affinity: &affinity::AffinityRouter,
 ) -> bool {
     let local_candidates = targets.candidates(model);
@@ -431,6 +386,7 @@ async fn auto_route_model_has_ready_ingress_target(
             node,
             model,
             required_tokens,
+            request_path,
             &local_candidates,
             affinity,
         )
@@ -448,6 +404,7 @@ async fn auto_route_model_has_ready_ingress_target(
             node,
             model,
             required_tokens,
+            request_path,
             &remote_candidates,
             affinity,
         )

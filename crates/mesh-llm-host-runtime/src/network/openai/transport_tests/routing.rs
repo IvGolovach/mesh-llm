@@ -65,7 +65,7 @@ impl crate::network::metrics::RoutingTelemetrySink for PromptShapeSink {
     }
 }
 
-fn test_peer_serving_model(peer_id: iroh::EndpointId, model: &str) -> mesh::PeerInfo {
+pub(super) fn test_peer_serving_model(peer_id: iroh::EndpointId, model: &str) -> mesh::PeerInfo {
     mesh::PeerInfo {
         id: peer_id,
         addr: iroh::EndpointAddr {
@@ -500,7 +500,9 @@ async fn cached_auto_model_stays_sticky_when_no_ready_remote_model_exists() -> R
         router::RoutingCandidate::unscored(cached_model, caps),
         router::RoutingCandidate::unscored(alternate_model, caps),
     ];
-    let ready_models = auto_route::ready_remote_models(&node, None, &available, &affinity).await;
+    let ready_models =
+        auto_route::ready_remote_models(&node, None, "/v1/chat/completions", &available, &affinity)
+            .await;
     assert!(ready_models.is_empty());
 
     let cached = lookup_cached_auto_model(

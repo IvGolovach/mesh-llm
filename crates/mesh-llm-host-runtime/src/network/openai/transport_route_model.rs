@@ -95,8 +95,14 @@ async fn route_model_request_inner(args: RouteModelRequestArgs<'_>) -> RouteDisp
     } = args;
     let route_started = Instant::now();
     let mut tcp_stream = tcp_stream;
-    let ranked =
-        rank_targets_by_context(&node, model, required_tokens, &targets.candidates(model)).await;
+    let candidates = super::super::workload_routing::eligible_targets(
+        &node,
+        model,
+        &request.client_path,
+        &targets.candidates(model),
+    )
+    .await;
+    let ranked = rank_targets_by_context(&node, model, required_tokens, &candidates).await;
     let ordered_candidates = affinity.route_eligible_candidates(model, &ranked.ordered);
     if ordered_candidates.is_empty() {
         record_route_model_unavailable(&node, model, 0);
