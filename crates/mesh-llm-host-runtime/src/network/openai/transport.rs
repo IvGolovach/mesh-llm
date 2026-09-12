@@ -30,7 +30,8 @@ pub(crate) use super::response::{
     send_json_with_status_and_headers_observed, send_models_list_with_descriptors,
 };
 pub(crate) use super::routing_rank::{
-    capabilities_for_model, descriptor_metadata_for_model, request_budget_tokens_from_parts,
+    capabilities_for_model, descriptor_metadata_for_model, model_satisfies_audio_upload_workload,
+    model_satisfies_workload_class, request_budget_tokens_from_parts,
 };
 
 use super::response::{
@@ -172,11 +173,12 @@ pub(crate) async fn reject_legacy_lifecycle_request(
     )
 }
 
-/// Generation context is a property of decode requests, not capability RPCs.
-/// A tokenizer request may carry a megabyte of source text while using no
-/// target KV context at all.
+/// Generation context cannot be estimated from every request body's byte size.
+/// Tokenizer requests use no target KV context, and multipart audio bodies
+/// contain encoded media rather than text tokens. The audio backend performs
+/// the authoritative media/context validation after routing.
 pub(crate) fn request_context_budget(request: &BufferedHttpRequest) -> Option<u32> {
-    if request.is_tokenize_request() {
+    if request.is_tokenize_request() || request.is_audio_upload_request() {
         None
     } else {
         request_budget_tokens_from_parts(request.body_len_bytes, request.completion_tokens)

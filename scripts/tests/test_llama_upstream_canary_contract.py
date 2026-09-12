@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import signal
 import stat
+import struct
 import subprocess
 import sys
 import tempfile
@@ -536,6 +537,16 @@ class SkippyFamilyBatteryTests(unittest.TestCase):
                             "stage-load",
                         ],
                     },
+                    "workload-smoke": {
+                        "status": "provisional",
+                        "oracle": "none",
+                        "required_lanes": ["class-specific-smoke"],
+                    },
+                    "workload-oracle": {
+                        "status": "certified",
+                        "oracle": "local-monolithic",
+                        "required_lanes": ["class-specific-smoke", "class-specific-oracle"],
+                    },
                 },
                 "cadences": ["llama-bump", "manual-full", "nightly", "rotating"],
             },
@@ -546,6 +557,7 @@ class SkippyFamilyBatteryTests(unittest.TestCase):
     def _model(revision: str = "a" * 40) -> dict[str, object]:
         return {
             "family": "test-family",
+            "class": "causal_generation",
             "profile": "full",
             "cadences": ["llama-bump", "manual-full"],
             "artifact": {
@@ -651,6 +663,36 @@ class SkippyFamilyBatteryTests(unittest.TestCase):
         self.assertIn("--family test-family", commands[0])
         self.assertIn("--family second-family", commands[3])
 
+    def test_supplied_plan_cannot_omit_a_manifest_selected_family(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            first = self._model()
+            second = self._model()
+            second["family"] = "second-family"
+            manifest = temp / "manifest.json"
+            policy = self._manifest(first)
+            policy["models"] = [first, second]
+            manifest.write_text(json.dumps(policy) + "\n", encoding="utf-8")
+            generated = subprocess.run(
+                [str(ROOT / "scripts" / "plan-family-battery.py"), "--manifest", str(manifest)],
+                cwd=ROOT, text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(0, generated.returncode, generated.stderr)
+            plan = json.loads(generated.stdout)
+            plan["selected_models"].pop()
+            plan["selected_family_count"] = 1
+            plan["shards"][0]["families"] = ["test-family"]
+            supplied = temp / "tampered-plan.json"
+            supplied.write_text(json.dumps(plan), encoding="utf-8")
+            result = subprocess.run(
+                [str(BATTERY), "--manifest", str(manifest), "--plan", str(supplied),
+                 "--dry-run", "--skip-build"],
+                cwd=ROOT, text=True, capture_output=True, check=False,
+            )
+        self.assertEqual(2, result.returncode)
+        self.assertIn("differs from the canonical manifest and selection", result.stderr)
+        self.assertNotIn("model-scans", result.stdout)
+
     def test_family_filter_limits_the_resolved_dry_run(self) -> None:
         selected = self._dry_run("--families", "test-family")
         self.assertEqual(0, selected.returncode, selected.stderr)
@@ -692,12 +734,15 @@ class SkippyFamilyBatteryTests(unittest.TestCase):
         self.assertIn("SKIPPY_MM_PROJECTOR=", smokes[0])
         self.assertIn("frontend::tests::multimodal", smokes[0])
         self.assertIn("--test-threads=1", smokes[0])
-        self.assertIn("family battery complete: 3/3", with_mmproj.stdout)
+        self.assertIn(
+            "family battery dry run complete: 3 certifications planned; no lanes executed",
+            with_mmproj.stdout,
+        )
 
     def test_mmproj_failure_is_accounted_separately_from_core_certification(self) -> None:
         script = BATTERY.read_text(encoding="utf-8")
         smoke_body = script.split("run_mmproj_smoke() {", 1)[1].split(
-            "\n}\n\nrun_resolved_manifest()", 1
+            "\n}\n\nrun_workload_certify()", 1
         )[0]
 
         self.assertIn("MM_SMOKE_FAILURE_COUNT=0", script)
@@ -732,7 +777,21 @@ class SkippyFamilyBatteryTests(unittest.TestCase):
                 / "model.gguf"
             )
             model.parent.mkdir(parents=True)
-            model.write_bytes(b"gguf-fixture")
+            def gguf_string(value: str) -> bytes:
+                encoded = value.encode("utf-8")
+                return struct.pack("<Q", len(encoded)) + encoded
+
+            model.write_bytes(
+                b"GGUF"
+                + struct.pack("<IQQ", 3, 0, 3)
+                + gguf_string("general.architecture")
+                + struct.pack("<I", 8)
+                + gguf_string("fixture")
+                + gguf_string("fixture.block_count")
+                + struct.pack("<II", 4, 6)
+                + gguf_string("fixture.embedding_length")
+                + struct.pack("<II", 4, 1024)
+            )
 
             bin_dir = temp / "bin"
             bin_dir.mkdir()
@@ -838,8 +897,12 @@ class SkippyFamilyBatteryTests(unittest.TestCase):
                 check=False,
                 timeout=30,
             )
-            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
             run_dir = next(artifacts.iterdir())
+            environment = json.loads(
+                (run_dir / "preflight" / "environment.json").read_text(encoding="utf-8")
+            )
+            self.assertFalse(environment["port_range"]["checked"])
             resolved = (run_dir / "resolved-models.tsv").read_text(encoding="utf-8")
             self.assertIn(revision, resolved)
             self.assertIn("|1|1024|5|", resolved)

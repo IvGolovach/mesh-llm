@@ -365,6 +365,59 @@ pub(crate) fn descriptor_metadata_for_model<'a>(
     descriptor_for_model(descriptors, model).and_then(|descriptor| descriptor.metadata.as_ref())
 }
 
+pub(crate) fn workload_class_for_model(
+    model: &str,
+    descriptors: &[mesh::ServedModelDescriptor],
+) -> Option<mesh::ModelWorkloadClass> {
+    descriptor_metadata_for_model(model, descriptors).and_then(|metadata| metadata.workload_class)
+}
+
+/// Checks the additive workload advertisement without breaking legacy chat
+/// routing. An absent field is compatible only with generative endpoints:
+/// older nodes predate workload classes and must never be assumed to support a
+/// newly introduced non-chat response contract.
+pub(crate) fn model_satisfies_workload_class(
+    model: &str,
+    requested: mesh::ModelWorkloadClass,
+    descriptors: &[mesh::ServedModelDescriptor],
+) -> bool {
+    match (requested, workload_class_for_model(model, descriptors)) {
+        (mesh::ModelWorkloadClass::CausalGeneration, None) => true,
+        (
+            mesh::ModelWorkloadClass::CausalGeneration,
+            Some(
+                mesh::ModelWorkloadClass::CausalGeneration
+                | mesh::ModelWorkloadClass::EncoderDecoder,
+            ),
+        ) => true,
+        (requested, Some(advertised)) => requested == advertised,
+        (_, None) => false,
+    }
+}
+
+/// Audio uploads use a newer HTTP contract than chat requests with audio
+/// parts. A legacy peer may advertise audio input but lack these endpoints, so
+/// neither inferred capabilities nor an absent workload class can opt it in.
+pub(crate) fn model_satisfies_audio_upload_workload(
+    model: &str,
+    descriptors: &[mesh::ServedModelDescriptor],
+) -> bool {
+    descriptor_for_model(descriptors, model).is_some_and(|descriptor| {
+        descriptor.capabilities_known
+            && descriptor.capabilities.supports_audio_runtime()
+            && matches!(
+                descriptor
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.workload_class),
+                Some(
+                    mesh::ModelWorkloadClass::CausalGeneration
+                        | mesh::ModelWorkloadClass::EncoderDecoder
+                )
+            )
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -390,6 +443,83 @@ mod tests {
             capabilities,
             ..local_gguf_descriptor(model_name)
         }
+    }
+
+    fn descriptor_with_workload(
+        model_name: &str,
+        workload_class: mesh::ModelWorkloadClass,
+    ) -> mesh::ServedModelDescriptor {
+        mesh::ServedModelDescriptor {
+            metadata: Some(mesh::ServedModelMetadata {
+                workload_class: Some(workload_class),
+                ..Default::default()
+            }),
+            ..local_gguf_descriptor(model_name)
+        }
+    }
+
+    #[test]
+    fn legacy_descriptors_are_compatible_only_with_generation_routes() {
+        let descriptors = vec![local_gguf_descriptor("legacy")];
+
+        assert!(model_satisfies_workload_class(
+            "legacy",
+            mesh::ModelWorkloadClass::CausalGeneration,
+            &descriptors
+        ));
+        assert!(!model_satisfies_workload_class(
+            "legacy",
+            mesh::ModelWorkloadClass::Embedding,
+            &descriptors
+        ));
+        assert!(!model_satisfies_workload_class(
+            "legacy",
+            mesh::ModelWorkloadClass::SpeechSynthesis,
+            &descriptors
+        ));
+    }
+
+    #[test]
+    fn workload_routes_require_an_exact_advertised_class() {
+        let descriptors = vec![
+            descriptor_with_workload("embed", mesh::ModelWorkloadClass::Embedding),
+            descriptor_with_workload("rank", mesh::ModelWorkloadClass::Rerank),
+        ];
+
+        assert!(model_satisfies_workload_class(
+            "embed",
+            mesh::ModelWorkloadClass::Embedding,
+            &descriptors
+        ));
+        assert!(!model_satisfies_workload_class(
+            "embed",
+            mesh::ModelWorkloadClass::Rerank,
+            &descriptors
+        ));
+        assert!(model_satisfies_workload_class(
+            "rank",
+            mesh::ModelWorkloadClass::Rerank,
+            &descriptors
+        ));
+    }
+
+    #[test]
+    fn encoder_decoder_models_can_serve_generation_routes() {
+        let descriptors = vec![descriptor_with_workload(
+            "t5",
+            mesh::ModelWorkloadClass::EncoderDecoder,
+        )];
+
+        assert!(model_satisfies_workload_class(
+            "t5",
+            mesh::ModelWorkloadClass::CausalGeneration,
+            &descriptors
+        ));
+        assert!(!model_satisfies_workload_class(
+            "t5",
+            mesh::ModelWorkloadClass::Embedding,
+            &descriptors
+        ));
     }
     #[test]
     fn test_cached_auto_model_rejects_text_model_for_image_request() {

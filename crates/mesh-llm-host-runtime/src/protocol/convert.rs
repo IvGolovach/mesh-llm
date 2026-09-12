@@ -311,6 +311,7 @@ fn local_model_metadata_to_proto(
     metadata: &crate::mesh::ServedModelMetadata,
 ) -> crate::proto::node::ServedModelMetadata {
     crate::proto::node::ServedModelMetadata {
+        workload_class: metadata.workload_class.map(local_workload_class_to_proto),
         architecture: metadata.architecture.clone(),
         parameter_size: metadata.parameter_size.clone(),
         parameter_count_b: metadata.parameter_count_b,
@@ -330,6 +331,9 @@ fn proto_model_metadata_to_local(
     metadata: &crate::proto::node::ServedModelMetadata,
 ) -> crate::mesh::ServedModelMetadata {
     crate::mesh::ServedModelMetadata {
+        workload_class: metadata
+            .workload_class
+            .and_then(proto_workload_class_to_local),
         architecture: metadata.architecture.clone(),
         parameter_size: metadata.parameter_size.clone(),
         parameter_count_b: metadata.parameter_count_b,
@@ -342,6 +346,33 @@ fn proto_model_metadata_to_local(
         kv_head_count: metadata.kv_head_count,
         expert_count: metadata.expert_count,
         active_expert_count: metadata.active_expert_count,
+    }
+}
+
+fn local_workload_class_to_proto(workload: crate::mesh::ModelWorkloadClass) -> i32 {
+    use crate::mesh::ModelWorkloadClass as Local;
+    use crate::proto::node::ModelWorkloadClass as Proto;
+
+    match workload {
+        Local::CausalGeneration => Proto::CausalGeneration as i32,
+        Local::Embedding => Proto::Embedding as i32,
+        Local::Rerank => Proto::Rerank as i32,
+        Local::EncoderDecoder => Proto::EncoderDecoder as i32,
+        Local::SpeechSynthesis => Proto::SpeechSynthesis as i32,
+    }
+}
+
+fn proto_workload_class_to_local(value: i32) -> Option<crate::mesh::ModelWorkloadClass> {
+    use crate::mesh::ModelWorkloadClass as Local;
+    use crate::proto::node::ModelWorkloadClass as Proto;
+
+    match Proto::try_from(value).ok()? {
+        Proto::Unspecified => None,
+        Proto::CausalGeneration => Some(Local::CausalGeneration),
+        Proto::Embedding => Some(Local::Embedding),
+        Proto::Rerank => Some(Local::Rerank),
+        Proto::EncoderDecoder => Some(Local::EncoderDecoder),
+        Proto::SpeechSynthesis => Some(Local::SpeechSynthesis),
     }
 }
 
@@ -1351,6 +1382,45 @@ pub(crate) fn proto_route_table_to_local(table: &crate::proto::node::RouteTable)
 mod tests {
     use super::*;
     use crate::mesh::requirements::peer_release_attestation_status;
+
+    #[test]
+    fn workload_class_round_trips_through_additive_proto_metadata() {
+        for workload in [
+            crate::mesh::ModelWorkloadClass::CausalGeneration,
+            crate::mesh::ModelWorkloadClass::Embedding,
+            crate::mesh::ModelWorkloadClass::Rerank,
+            crate::mesh::ModelWorkloadClass::EncoderDecoder,
+            crate::mesh::ModelWorkloadClass::SpeechSynthesis,
+        ] {
+            let local = crate::mesh::ServedModelMetadata {
+                workload_class: Some(workload),
+                architecture: Some("test".to_string()),
+                ..Default::default()
+            };
+
+            let proto = local_model_metadata_to_proto(&local);
+            let restored = proto_model_metadata_to_local(&proto);
+
+            assert_eq!(restored.workload_class, Some(workload));
+            assert_eq!(restored.architecture.as_deref(), Some("test"));
+        }
+    }
+
+    #[test]
+    fn absent_or_unknown_proto_workload_class_is_legacy_compatible() {
+        let absent = crate::proto::node::ServedModelMetadata::default();
+        assert_eq!(proto_model_metadata_to_local(&absent).workload_class, None);
+
+        let unknown = crate::proto::node::ServedModelMetadata {
+            workload_class: Some(9_999),
+            ..Default::default()
+        };
+        assert_eq!(
+            proto_model_metadata_to_local(&unknown).workload_class,
+            None,
+            "newer workload enum values must be ignored by older conversion code"
+        );
+    }
 
     #[test]
     fn proto_ann_to_local_preserves_malformed_release_attestation_for_later_rejection() {

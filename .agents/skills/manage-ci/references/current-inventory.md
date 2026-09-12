@@ -47,10 +47,16 @@ default-branch content only on the persistent self-hosted `family-certify`
 runner group (tools come from the runner image; no GitHub Actions model
 caching). Before native compilation,
 `scripts/plan-family-battery.py` validates the versioned JSON family policy,
-the mandatory three-lane contract for every certified profile, and every exact
-artifact revision/file in the immutable local cache. It reads only GGUF
-metadata headers, requires each artifact to have at least one metadata-bearing
-shard, and requires every shard that carries `*.block_count` and
+the three core parity lanes for certified causal rows, one class-specific
+smoke lane for each of the six registry-generated non-chat rows
+(`embedding`, `rerank`, `encoder_decoder`, `ocr`, `speech_synthesis`, and
+`speech_recognition`): respectively `embedding-smoke`,
+`rerank-smoke`, `encoder-decoder-smoke`, `ocr-smoke`,
+`speech-synthesis-smoke`, and `speech-recognition-smoke`. These lanes exercise
+local full-model and HTTP behavior, without an independent equivalence oracle. It also
+checks every exact artifact revision/file in the immutable local cache. It
+reads only GGUF metadata headers, requires each artifact to have at least one
+metadata-bearing shard, and requires every shard that carries `*.block_count` and
 `*.embedding_length` to equal the planned runtime range and activation width
 before compilation; Qwen4 experimental artifacts derive their wider boundary
 from `hyper_connection.count * embedding_length`. It emits
@@ -77,9 +83,10 @@ Mamba). A changed pin selects `llama-bump`; a manual dispatch may set
 family battery. Before any certification starts, every selected GGUF is resolved
 directly by the immutable snapshot SHA checked into
 `ci/llama-canary/family-certified.json`. The runtime preflight records the
-revisions, verifies all shard/tensor scans and declared runtime/MTP layer
-counts/model bytes, disk
-headroom and certification ports. Native MTP/NextN heads remain part of the
+revisions and verifies all shard/tensor scans, declared runtime/MTP layer
+counts/model bytes, and disk headroom. Full certification also probes the
+certification port range; `--preflight-only` skips those socket probes and
+records `port_range.checked=false`. Native MTP/NextN heads remain part of the
 single target model; the battery never reopens that model as a separate draft.
 Those rows require native draft sidebands in staged single-step and chain
 correctness, where each proposed token is verified against the target. The

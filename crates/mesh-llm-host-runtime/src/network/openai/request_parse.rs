@@ -10,6 +10,9 @@ use super::request_normalize::{
 };
 use super::routing_rank::descriptor_for_model;
 
+mod audio_multipart;
+use audio_multipart::{multipart_model_field, multipart_model_value_range};
+
 pub(crate) const MAX_HEADER_BYTES: usize = 64 * 1024;
 /// Private lifecycle ownership assertion used only on trusted mesh forwarding.
 ///
@@ -20,8 +23,10 @@ pub(crate) const MAX_HEADER_BYTES: usize = 64 * 1024;
 pub(crate) const RAW_LIFECYCLE_OWNER_HEADER: &str = "x-mesh-llm-raw-lifecycle";
 pub(super) const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
 const MAX_OBJECT_UPLOAD_BODY_BYTES: usize = 64 * 1024 * 1024;
+const MAX_AUDIO_UPLOAD_BODY_BYTES: usize = 64 * 1024 * 1024 + 64 * 1024;
 const MAX_CHUNKED_WIRE_BYTES: usize = MAX_BODY_BYTES * 6 + 64 * 1024;
 const MAX_OBJECT_UPLOAD_CHUNKED_WIRE_BYTES: usize = MAX_OBJECT_UPLOAD_BODY_BYTES * 6 + 64 * 1024;
+const MAX_AUDIO_UPLOAD_CHUNKED_WIRE_BYTES: usize = MAX_AUDIO_UPLOAD_BODY_BYTES * 6 + 64 * 1024;
 pub(super) const MAX_HEADERS: usize = 64;
 const CRLF: &[u8] = b"\r\n";
 const LF: &[u8] = b"\n";
@@ -48,6 +53,7 @@ struct ParsedHeaders {
     path: String,
     request_id: RequestId,
     content_length: Option<usize>,
+    content_type: Option<String>,
     is_chunked: bool,
     expects_continue: bool,
     correlation_id: Option<String>,
@@ -136,6 +142,12 @@ impl BufferedHttpRequest {
     /// not a generation request and must never inherit chat routing behavior.
     pub fn is_tokenize_request(&self) -> bool {
         is_tokenize_request(&self.method, &self.path)
+    }
+
+    /// Multipart audio bytes are encoded media, not prompt text. The proxy
+    /// cannot infer their eventual model context size from the wire length.
+    pub fn is_audio_upload_request(&self) -> bool {
+        self.method == "POST" && is_audio_upload_path(&self.client_path)
     }
 
     pub fn ensure_body_json(&mut self) {
@@ -354,6 +366,12 @@ where
                 .map_err(|error| OpenAiRequestReadError::after_headers(error, &parsed))?
                 .to_owned(),
         )
+    } else if is_audio_upload_path(&parsed.path) {
+        match parsed.content_type.as_deref() {
+            Some(content_type) => multipart_model_field(content_type, &body)
+                .map_err(|error| OpenAiRequestReadError::after_headers(error, &parsed))?,
+            None => None,
+        }
     } else {
         metadata.as_ref().and_then(|value| value.model.clone())
     };
@@ -536,9 +554,22 @@ fn body_limits_for_path(path: &str, default: HttpReadLimits) -> HttpReadLimits {
             max_body_bytes: MAX_OBJECT_UPLOAD_BODY_BYTES,
             max_chunked_wire_bytes: MAX_OBJECT_UPLOAD_CHUNKED_WIRE_BYTES,
         }
+    } else if is_audio_upload_path(path_only) {
+        HttpReadLimits {
+            max_header_bytes: default.max_header_bytes,
+            max_body_bytes: MAX_AUDIO_UPLOAD_BODY_BYTES,
+            max_chunked_wire_bytes: MAX_AUDIO_UPLOAD_CHUNKED_WIRE_BYTES,
+        }
     } else {
         default
     }
+}
+
+fn is_audio_upload_path(path: &str) -> bool {
+    matches!(
+        path.split('?').next().unwrap_or(path),
+        "/v1/audio/transcriptions" | "/v1/audio/translations"
+    )
 }
 
 fn finalize_forwarded_request(
@@ -651,6 +682,7 @@ where
                 let mut is_chunked = false;
                 let mut expects_continue = false;
                 let mut correlation_id = None;
+                let mut content_type = None;
 
                 for header in req.headers.iter() {
                     if header.name.eq_ignore_ascii_case("content-length") {
@@ -671,6 +703,8 @@ where
                         expects_continue = val
                             .split(',')
                             .any(|part| part.trim().eq_ignore_ascii_case("100-continue"));
+                    } else if header.name.eq_ignore_ascii_case("content-type") {
+                        content_type = std::str::from_utf8(header.value).ok().map(str::to_string);
                     } else if header.name.eq_ignore_ascii_case("x-correlation-id")
                         || header.name.eq_ignore_ascii_case("x-request-id")
                         || header.name.eq_ignore_ascii_case("correlation-id")
@@ -692,6 +726,7 @@ where
                     path,
                     request_id: request_id_from_headers(req.headers),
                     content_length,
+                    content_type,
                     is_chunked,
                     expects_continue,
                     correlation_id,
@@ -997,33 +1032,27 @@ pub fn inject_mesh_hooks_flag(raw: &mut Vec<u8>, enabled: bool) {
     *raw = result;
 }
 
-/// Rewrite the JSON body `model` field and rebuild Content-Length.
-pub fn rewrite_model_field(request: &mut BufferedHttpRequest, model: &str) {
-    let Some(header_end) = request
-        .raw
-        .windows(4)
-        .position(|w| w == b"\r\n\r\n")
-        .map(|i| i + 4)
-    else {
-        return;
+fn content_type_from_request(raw: &[u8]) -> Option<String> {
+    let mut headers = [httparse::EMPTY_HEADER; MAX_HEADERS];
+    let mut parsed = httparse::Request::new(&mut headers);
+    let httparse::Status::Complete(_) = parsed.parse(raw).ok()? else {
+        return None;
     };
+    parsed
+        .headers
+        .iter()
+        .find(|header| header.name.eq_ignore_ascii_case("content-type"))
+        .and_then(|header| std::str::from_utf8(header.value).ok())
+        .map(str::to_string)
+}
 
-    let Ok(mut body) = serde_json::from_slice::<serde_json::Value>(&request.raw[header_end..])
-    else {
-        return;
-    };
-    let Some(object) = body.as_object_mut() else {
-        return;
-    };
-
-    object.insert(
-        "model".to_string(),
-        serde_json::Value::String(model.to_string()),
-    );
-    let Ok(new_body) = serde_json::to_vec(&body) else {
-        return;
-    };
-
+fn rebuild_request_body(
+    request: &mut BufferedHttpRequest,
+    header_end: usize,
+    new_body: Vec<u8>,
+    body_json: Option<serde_json::Value>,
+    model: &str,
+) {
     let headers = std::str::from_utf8(&request.raw[..header_end - 4]).unwrap_or("");
     let mut rebuilt = String::new();
     for line in headers.split("\r\n") {
@@ -1038,13 +1067,52 @@ pub fn rewrite_model_field(request: &mut BufferedHttpRequest, model: &str) {
 
     let mut raw = rebuilt.into_bytes();
     raw.extend_from_slice(&new_body);
-
     request.raw = raw;
     request.body_len_bytes = new_body.len();
     request.body_bytes = Some(new_body);
-    request.body_json = Some(body);
+    request.body_json = body_json;
     request.body_json_attempted = true;
     request.model_name = Some(model.to_string());
+}
+
+/// Rewrite the JSON or multipart `model` field and rebuild Content-Length.
+pub fn rewrite_model_field(request: &mut BufferedHttpRequest, model: &str) {
+    let Some(header_end) = request
+        .raw
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .map(|i| i + 4)
+    else {
+        return;
+    };
+
+    if let Ok(mut body) = serde_json::from_slice::<serde_json::Value>(&request.raw[header_end..]) {
+        let Some(object) = body.as_object_mut() else {
+            return;
+        };
+        object.insert(
+            "model".to_string(),
+            serde_json::Value::String(model.to_string()),
+        );
+        let Ok(new_body) = serde_json::to_vec(&body) else {
+            return;
+        };
+        rebuild_request_body(request, header_end, new_body, Some(body), model);
+        return;
+    }
+
+    let Some(content_type) = content_type_from_request(&request.raw) else {
+        return;
+    };
+    let original = &request.raw[header_end..];
+    let Ok(Some(range)) = multipart_model_value_range(&content_type, original) else {
+        return;
+    };
+    let mut new_body = Vec::with_capacity(original.len() - range.len() + model.len());
+    new_body.extend_from_slice(&original[..range.start]);
+    new_body.extend_from_slice(model.as_bytes());
+    new_body.extend_from_slice(&original[range.end..]);
+    rebuild_request_body(request, header_end, new_body, None, model);
 }
 
 pub fn is_models_list_request(method: &str, path: &str) -> bool {

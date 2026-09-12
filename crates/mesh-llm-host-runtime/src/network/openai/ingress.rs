@@ -33,6 +33,13 @@ enum AutoRouteResolution {
         classification: Option<router::Classification>,
     },
     MediaUnsupported,
+    WorkloadUnsupported(mesh::ModelWorkloadClass),
+}
+
+#[derive(Debug)]
+enum AutoRouteRejection {
+    MediaUnsupported,
+    WorkloadUnsupported(mesh::ModelWorkloadClass),
 }
 
 struct IngressRouteContext<'a> {
@@ -223,6 +230,7 @@ async fn resolve_auto_routed_model(
     required_tokens: Option<u32>,
     affinity: &affinity::AffinityRouter,
 ) -> AutoRouteResolution {
+    let requested_workload = request_workload_class(&request.client_path);
     // An explicitly named model routes to itself. The automatic directive (in
     // either spelling) resolves here, so `mesh` reaches the same
     // media-capability filter and readiness/affinity selection as `auto` —
@@ -231,6 +239,11 @@ async fn resolve_auto_routed_model(
     if let Some(model) = request.model_name.as_deref()
         && !automatic::is_directive(model)
     {
+        if let Some(workload) = requested_workload
+            && !model_satisfies_request_workload(model, workload, &request.client_path, descriptors)
+        {
+            return AutoRouteResolution::WorkloadUnsupported(workload);
+        }
         return AutoRouteResolution::Continue {
             effective_model: request.model_name.clone(),
             classification: None,
@@ -238,22 +251,28 @@ async fn resolve_auto_routed_model(
     }
 
     request.ensure_body_json();
-    let Some(body_json) = request.body_json.as_ref() else {
+    let body_json = request.body_json.as_ref();
+    if body_json.is_none() && requested_workload.is_none() {
         return AutoRouteResolution::Continue {
             effective_model: None,
             classification: None,
         };
-    };
+    }
 
     automatic::warn_if_deprecated_alias(request.model_name.as_deref());
 
-    let mode = automatic::serving_mode(automatic::AutomaticRequest {
-        model: request.model_name.as_deref(),
-        // The forwarded path: `/v1/responses` has already been normalised onto
-        // chat completions by this point, so it stays committee-eligible.
-        path: &request.path,
-        body: body_json,
-    });
+    let mode = body_json.map_or(
+        automatic::ServingMode::SingleModel(automatic::SingleModelReason::NonChatRequest),
+        |body| {
+            automatic::serving_mode(automatic::AutomaticRequest {
+                model: request.model_name.as_deref(),
+                // The forwarded path: `/v1/responses` has already been normalised onto
+                // chat completions by this point, so it stays committee-eligible.
+                path: &request.path,
+                body,
+            })
+        },
+    );
     match mode {
         // Committee mode keeps the directive as the effective model so the MoA
         // gateway picks the request up.
@@ -271,10 +290,33 @@ async fn resolve_auto_routed_model(
         ),
     }
 
-    let classification = router::classify(body_json);
-    let media = router::media_requirements(body_json);
-    let available_models =
+    let classification = body_json.map_or_else(
+        || router::Classification {
+            category: router::Category::Chat,
+            complexity: router::Complexity::Quick,
+            needs_tools: false,
+            has_media_inputs: is_audio_upload_path(&request.client_path),
+        },
+        router::classify,
+    );
+    let media = body_json.map_or_else(
+        || router::MediaRequirements {
+            has_media: is_audio_upload_path(&request.client_path),
+            needs_vision: false,
+            needs_audio: is_audio_upload_path(&request.client_path),
+        },
+        router::media_requirements,
+    );
+    let mut available_models =
         collect_available_models_for_auto_route(node, targets, plugin_manager).await;
+    if let Some(workload) = requested_workload {
+        available_models.retain(|model| {
+            model_satisfies_request_workload(model, workload, &request.client_path, descriptors)
+        });
+        if available_models.is_empty() {
+            return AutoRouteResolution::WorkloadUnsupported(workload);
+        }
+    }
     let metrics = node.routing_metrics();
     let available: Vec<router::RoutingCandidate<'_>> = available_models
         .iter()
@@ -315,6 +357,40 @@ async fn resolve_auto_routed_model(
     AutoRouteResolution::Continue {
         effective_model,
         classification: Some(classification),
+    }
+}
+
+fn is_audio_upload_path(path: &str) -> bool {
+    matches!(
+        path.split('?').next().unwrap_or(path),
+        "/v1/audio/transcriptions" | "/v1/audio/translations"
+    )
+}
+
+fn model_satisfies_request_workload(
+    model: &str,
+    workload: mesh::ModelWorkloadClass,
+    path: &str,
+    descriptors: &[mesh::ServedModelDescriptor],
+) -> bool {
+    if is_audio_upload_path(path) {
+        proxy::model_satisfies_audio_upload_workload(model, descriptors)
+    } else {
+        proxy::model_satisfies_workload_class(model, workload, descriptors)
+    }
+}
+
+fn request_workload_class(path: &str) -> Option<mesh::ModelWorkloadClass> {
+    match path.split('?').next().unwrap_or(path) {
+        "/v1/chat/completions"
+        | "/v1/completions"
+        | "/v1/responses"
+        | "/v1/audio/transcriptions"
+        | "/v1/audio/translations" => Some(mesh::ModelWorkloadClass::CausalGeneration),
+        "/v1/embeddings" => Some(mesh::ModelWorkloadClass::Embedding),
+        "/v1/rerank" => Some(mesh::ModelWorkloadClass::Rerank),
+        "/v1/audio/speech" => Some(mesh::ModelWorkloadClass::SpeechSynthesis),
+        _ => None,
     }
 }
 
@@ -813,7 +889,7 @@ async fn prepare_auto_route_decision(
     request: &mut proxy::BufferedHttpRequest,
     ctx: &IngressRouteContext<'_>,
     descriptors: &[crate::mesh::ServedModelDescriptor],
-) -> Result<AutoRouteDecision, ()> {
+) -> Result<AutoRouteDecision, AutoRouteRejection> {
     let required_tokens = proxy::request_context_budget(request);
     match resolve_auto_routed_model(
         ctx.node,
@@ -840,8 +916,28 @@ async fn prepare_auto_route_decision(
                 required_tokens,
             })
         }
-        AutoRouteResolution::MediaUnsupported => Err(()),
+        AutoRouteResolution::MediaUnsupported => Err(AutoRouteRejection::MediaUnsupported),
+        AutoRouteResolution::WorkloadUnsupported(workload) => {
+            Err(AutoRouteRejection::WorkloadUnsupported(workload))
+        }
     }
+}
+
+async fn send_workload_unsupported(
+    tcp_stream: ClientStream,
+    workload: mesh::ModelWorkloadClass,
+    path: &str,
+    route_observer: OpenAiRouteObserver<'_>,
+) -> proxy::RouteDispatchOutcome {
+    let message = if is_audio_upload_path(path) {
+        "no served model advertises support for this audio-to-text endpoint".to_string()
+    } else {
+        format!("no served model advertises the required {workload:?} workload")
+    };
+    response_outcome(
+        422,
+        proxy::send_error_observed(tcp_stream, 422, &message, route_observer).await,
+    )
 }
 
 async fn send_media_unsupported(
@@ -1089,8 +1185,19 @@ async fn handle_buffered_api_request(
 
     let decision = match prepare_auto_route_decision(&mut request, &ctx.route, &descriptors).await {
         Ok(decision) => decision,
-        Err(()) => {
+        Err(AutoRouteRejection::MediaUnsupported) => {
             let outcome = send_media_unsupported(tcp_stream, lifecycle.route_observer()).await;
+            lifecycle.terminal(terminal_outcome_for_dispatch(outcome));
+            return;
+        }
+        Err(AutoRouteRejection::WorkloadUnsupported(workload)) => {
+            let outcome = send_workload_unsupported(
+                tcp_stream,
+                workload,
+                &request.client_path,
+                lifecycle.route_observer(),
+            )
+            .await;
             lifecycle.terminal(terminal_outcome_for_dispatch(outcome));
             return;
         }
