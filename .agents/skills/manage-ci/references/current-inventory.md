@@ -21,7 +21,7 @@ Read it with `../SKILL.md` and `ci/ci.md` before editing CI.
 | `main_windows.yml` (`Main · Windows`) | push to `main` | Exhaustive main planning plus the same-commit reusable Windows lane |
 | `ci.yml` | `workflow_call` only | Temporary inert shim for the former main ingress filename; pending protected-main runner-contract update; no push trigger or dispatch |
 | `ci-control.yml` (`CI · Manual Full`) | dispatch on default branch | Explicit operator-only full plan, bounded lane dispatch and correlated diagnostic checks |
-| `release.yml` | dispatch on the default branch | Canonical version synchronization, release-only signing, assets, publication, and a preflighted downstream `mesh-packaging` dispatch |
+| `release.yml` | dispatch on the default branch | Canonical version synchronization, release-only signing, assets, publication, post-publish release-notes regrouping, and a preflighted downstream `mesh-packaging` dispatch |
 | `website-pages.yml` | main website paths, dispatch | Public website deployment |
 | `pr_cleanup.yml` | PR close, dispatch | Positively matched cleanup only |
 | `pr_auto_assign.yml` | PR lifecycle | Metadata only |
@@ -132,6 +132,59 @@ for generated Swift/SDK resources and enables GitHub-generated release notes.
 The comparison base is the highest stable `vMAJOR.MINOR.PATCH` tag below the
 target; prerelease tags are excluded so RC and final notes use the same stable
 baseline.
+
+The `release_notes` job runs after a successful stable publish with
+`contents: write` and regroups that published body into Keep a Changelog
+sections through `scripts/release-notes-generate.sh`. The deterministic
+classifier maps Conventional Commits types from the canonical commit range; the
+optional agent review pass runs only when `RELEASE_NOTES_AGENT_MODEL` is set,
+the agent CLI is installed, credentials exist, and a bounded liveness probe
+succeeds. The agent turn runs with `GH_TOKEN` and `GITHUB_TOKEN` stripped and
+never publishes. Any agent failure keeps the deterministic notes without
+failing the job. Evidence uploads as `release-notes-<tag>` for 90 days.
+
+Merge settings as of 2026-09-10: `allow_merge_commit=false`,
+`allow_rebase_merge=true`, `allow_squash_merge=true`,
+`squash_merge_commit_title=PR_TITLE`, and
+`squash_merge_commit_message=PR_BODY`. The title and body settings were
+changed from `COMMIT_OR_PR_TITLE` and `COMMIT_MESSAGES` on that date.
+`COMMIT_MESSAGES` composed the squash body from the branch commit messages,
+which carried agent and bot `Co-authored-by:` trailers onto `main` even when
+the pull request title was clean. Composing from the title and body instead
+means the squash commit contains only text CI has validated. GitHub may still
+add its own `Co-authored-by:` trailer for a pull request whose commits have
+several distinct authors; no message-level control prevents that.
+
+Attribution-trailer enforcement is CI plus merge-message composition, not a
+ruleset. A negated `commit_message_pattern` ruleset was created, measured and
+deleted on 2026-09-10. Rulesets accept commit-metadata rules on any plan and
+report them `active`, but GitHub gates metadata restrictions to Enterprise
+organizations and this organization is on Team, so the rule was never
+evaluated. Four pushes carrying the denied literal were accepted: branch
+creation and branch update, with both the `regex` and `contains` operators,
+from a ruleset reporting `current_user_can_bypass: "never"`. Do not re-add a
+commit-metadata rule here expecting it to enforce anything.
+
+What enforces the convention instead:
+
+- `scripts/hooks/commit-msg` locally, installed by `just hooks-install` and by
+  the first local development build on every platform.
+- The `commit_convention` job in `ci-quality-slice.yml`, which validates the
+  pull request title against Conventional Commits and scans every branch
+  commit message plus the pull request body for denied attribution trailers.
+  It declares no `needs`, so it fails within a minute rather than after a lane
+  has compiled anything, and runs only for `pull_request` events.
+  Pull-request-authored text reaches the script through environment variables
+  and is never interpolated into the shell.
+- Merge-message composition. `squash_merge_commit_title=PR_TITLE` and
+  `squash_merge_commit_message=PR_BODY` since 2026-09-10, replacing
+  `COMMIT_OR_PR_TITLE` and `COMMIT_MESSAGES`. The squash commit is built from
+  the title and body that CI validated, so a branch commit that skipped the
+  hook cannot carry a trailer onto `main`.
+
+The four `main` ruleset bypass actors remain deliberately: maintainers need a
+fast merge path. Required checks therefore do not bind them, and the CI check
+is the control for everyone else.
 
 The five PR lifecycle rows and five main push rows above are the complete
 allowed routine validation entry sets. The protected sibling monitor is
