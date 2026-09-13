@@ -81,7 +81,8 @@ class EmbeddingSdkSmokeTests(unittest.TestCase):
     def test_item_metadata_must_match_single_input(self) -> None:
         """Reject missing, negative and surplus indexes and invalid item objects."""
         for field, value in (("object", "list"), ("object", None),
-                             ("index", -1), ("index", 1), ("index", None)):
+                             ("index", -1), ("index", 1), ("index", None),
+                             ("index", False), ("index", 0.0), ("index", "0")):
             with self.subTest(field=field, value=value):
                 response = self.encoded_response()
                 setattr(response.data[0], field, value)
@@ -122,6 +123,9 @@ class EmbeddingHttpSmokeTests(unittest.TestCase):
         self.run_smoke(good)
         for changed in ({"data": []}, {"data": [item, item]}, {"data": None},
                         {"data": [None]}, {"data": [{**item, "index": 1}]},
+                        {"data": [{**item, "index": False}]},
+                        {"data": [{**item, "index": 0.0}]},
+                        {"data": [{**item, "index": "0"}]},
                         {"data": [{**item, "object": None}]},
                         {"model": "another-model"}, {"object": "embedding"}):
             with self.subTest(changed=changed), self.assertRaises(RuntimeError):

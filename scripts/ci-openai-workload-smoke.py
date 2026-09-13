@@ -125,7 +125,8 @@ def smoke_embedding(base_url: str, model: str) -> None:
     if not isinstance(rows, list) or len(rows) != 1:
         raise RuntimeError("base64 embedding response has the wrong batch size")
     item = rows[0]
-    if not isinstance(item, dict) or item.get("object") != "embedding" or item.get("index") != 0:
+    if (not isinstance(item, dict) or item.get("object") != "embedding"
+            or type(item.get("index")) is not int or item["index"] != 0):
         raise RuntimeError("base64 embedding response has invalid item metadata")
     payload = item.get("embedding")
     if not isinstance(payload, str):

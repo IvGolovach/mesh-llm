@@ -62,7 +62,7 @@ def main() -> None:
     if len(encoded.data) != 1:
         raise RuntimeError("base64 embeddings response has the wrong batch size")
     item = encoded.data[0]
-    if item.object != "embedding" or item.index != 0:
+    if item.object != "embedding" or type(item.index) is not int or item.index != 0:
         raise RuntimeError("base64 embeddings response has invalid item metadata")
     payload = item.embedding
     if not isinstance(payload, str):
