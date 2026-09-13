@@ -31,11 +31,13 @@ HEIGHT = 2 * MARGIN + 7 * SCALE
 
 
 def chunk(kind: bytes, data: bytes) -> bytes:
+    """Frame a PNG chunk with a network-order length and CRC."""
     payload = kind + data
     return struct.pack(">I", len(data)) + payload + struct.pack(">I", zlib.crc32(payload))
 
 
 def png_bytes() -> bytes:
+    """Render the original fixed-glyph OCR fixture as deterministic RGB PNG bytes."""
     pixels = bytearray(b"\xff" * (WIDTH * HEIGHT * 3))
     for char_index, char in enumerate(TEXT):
         for glyph_y, row in enumerate(GLYPHS[char]):
@@ -61,6 +63,7 @@ def png_bytes() -> bytes:
 
 
 def main() -> None:
+    """Write the deterministic original OCR fixture to the requested path."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()

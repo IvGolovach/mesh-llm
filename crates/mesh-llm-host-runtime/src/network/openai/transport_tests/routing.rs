@@ -65,6 +65,7 @@ impl crate::network::metrics::RoutingTelemetrySink for PromptShapeSink {
     }
 }
 
+/// Construct a reachable peer advertising the supplied model for routing tests.
 pub(super) fn test_peer_serving_model(peer_id: iroh::EndpointId, model: &str) -> mesh::PeerInfo {
     mesh::PeerInfo {
         id: peer_id,
@@ -339,6 +340,7 @@ async fn remote_tokenizer_plan_routes_identity_model_without_context_rejection()
 }
 
 #[tokio::test]
+/// Keep audio payload bytes out of text-context routing estimates.
 async fn remote_audio_upload_ignores_encoded_bytes_as_context_tokens() -> Result<()> {
     let model = "acme/audio-model:Q4_K_M";
     let peer_id = iroh::EndpointId::from(iroh::SecretKey::generate().public());

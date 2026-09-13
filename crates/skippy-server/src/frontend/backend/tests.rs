@@ -1249,6 +1249,7 @@ fn hooks_test_backend(hook_policy: Option<Arc<dyn OpenAiHookPolicy>>) -> StageOp
     }
 }
 
+/// Construct a stage-zero embedded topology for non-chat admission tests.
 fn embedded_non_chat_test_mode(config: skippy_protocol::StageConfig) -> OpenAiBackendMode {
     OpenAiBackendMode::EmbeddedStageZero {
         config,
@@ -1263,6 +1264,7 @@ fn embedded_non_chat_test_mode(config: skippy_protocol::StageConfig) -> OpenAiBa
 }
 
 #[test]
+/// Allow non-chat execution for a complete, unsplit embedded model.
 fn embedded_stage_zero_admits_unsplit_local_non_chat_topology() {
     let mut backend = hooks_test_backend(None);
     backend.mode = embedded_non_chat_test_mode(backend.config.clone());
@@ -1271,6 +1273,7 @@ fn embedded_stage_zero_admits_unsplit_local_non_chat_topology() {
 }
 
 #[test]
+/// Reject non-chat execution with incomplete layer, tensor, or expert ownership.
 fn non_chat_topology_guard_rejects_staged_and_filtered_models() {
     let mut backend = hooks_test_backend(None);
     let full_config = backend.config.clone();

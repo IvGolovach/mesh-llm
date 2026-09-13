@@ -399,6 +399,9 @@ runtime producers are not duplicated.
   freshly built native runtime. CPU only — the reporter is
   backend-independent, so another backend would buy a duplicate of the same
   evidence.
+  Its exact `family-qwen3-dense` fixture is registry-authorized for both
+  `pull-request` and `main` restoration. Those retrieval cadences do not expand
+  the separate persistent-runner family-certification schedule.
 - `ci-{linux,macos,windows}-product-slice.yml` — composition-only consumers
   that join only their matching immutable host and runtime artifacts.
 - `ci-platform-checks-slice.yml` — macOS portable/unit, Windows portable, and

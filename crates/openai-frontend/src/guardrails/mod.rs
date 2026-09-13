@@ -356,6 +356,7 @@ impl OpenAiBackend for GuardedOpenAiBackend {
         self.backend.completion_stream(request, context).await
     }
 
+    /// Forward embeddings and request context without chat processing.
     async fn embeddings(
         &self,
         request: EmbeddingsRequest,
@@ -364,6 +365,7 @@ impl OpenAiBackend for GuardedOpenAiBackend {
         self.backend.embeddings(request, context).await
     }
 
+    /// Forward reranking and request context without chat processing.
     async fn rerank(
         &self,
         request: RerankRequest,
@@ -372,6 +374,7 @@ impl OpenAiBackend for GuardedOpenAiBackend {
         self.backend.rerank(request, context).await
     }
 
+    /// Forward speech generation and request context unchanged.
     async fn audio_speech(
         &self,
         request: AudioSpeechRequest,
@@ -380,6 +383,7 @@ impl OpenAiBackend for GuardedOpenAiBackend {
         self.backend.audio_speech(request, context).await
     }
 
+    /// Forward multipart transcription and request context unchanged.
     async fn audio_transcription(
         &self,
         request: AudioTranscriptionRequest,
@@ -388,6 +392,7 @@ impl OpenAiBackend for GuardedOpenAiBackend {
         self.backend.audio_transcription(request, context).await
     }
 
+    /// Forward multipart translation and request context unchanged.
     async fn audio_translation(
         &self,
         request: AudioTranscriptionRequest,

@@ -151,6 +151,7 @@ impl StageModel {
         self.media.is_some()
     }
 
+    /// Report whether the configured projector supports native audio generation.
     pub fn supports_speech_synthesis(&self) -> bool {
         self.media.as_ref().is_some_and(|projector| {
             let info = unsafe { skippy_ffi::mtmd_gen_audio_get_info(projector.raw) };
@@ -873,6 +874,7 @@ impl StageModel {
     }
 }
 
+/// Validate and quantize native float32 PCM into clamped signed little-endian samples.
 fn pcm_f32_to_s16le(bytes: &[u8]) -> Result<Vec<u8>> {
     if !bytes.len().is_multiple_of(std::mem::size_of::<f32>()) {
         return Err(anyhow!("native PCM payload is not aligned to f32 samples"));
@@ -893,6 +895,7 @@ mod tests {
     use super::pcm_f32_to_s16le;
 
     #[test]
+    /// Verify clipping and quantization at signed PCM boundaries.
     fn pcm_conversion_clamps_and_quantizes_native_float_samples() {
         let samples = [-2.0_f32, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0];
         let bytes = samples
@@ -915,6 +918,7 @@ mod tests {
     }
 
     #[test]
+    /// Reject PCM payloads without complete float32 samples.
     fn pcm_conversion_rejects_misaligned_native_payload() {
         assert!(pcm_f32_to_s16le(&[0, 1, 2]).is_err());
     }

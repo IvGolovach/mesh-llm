@@ -102,6 +102,21 @@ class EmbeddingSdkSmokeTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, message):
                     self.run_smoke(response)
 
+    def test_base64_values_must_match_float_response(self) -> None:
+        """A finite normalized vector of the right size still needs value parity."""
+        response = self.encoded_response()
+        response.data[0].embedding = base64.b64encode(struct.pack("<2f", 0, 1)).decode()
+        with self.assertRaisesRegex(RuntimeError, "differs from float"):
+            self.run_smoke(response)
+
+    def test_base64_parity_allows_float32_rounding(self) -> None:
+        """Float32 rounding must not reject otherwise equivalent representations."""
+        response = self.encoded_response()
+        response.data[0].embedding = base64.b64encode(
+            struct.pack("<2f", 1 + 1e-7, 1e-7)
+        ).decode()
+        self.run_smoke(response)
+
 
 class EmbeddingHttpSmokeTests(unittest.TestCase):
     """The raw HTTP smoke must enforce the same base64 envelope as the SDK smoke."""
@@ -130,6 +145,22 @@ class EmbeddingHttpSmokeTests(unittest.TestCase):
                         {"model": "another-model"}, {"object": "embedding"}):
             with self.subTest(changed=changed), self.assertRaises(RuntimeError):
                 self.run_smoke({**good, **changed})
+
+    def test_base64_values_must_match_float_response(self) -> None:
+        """Do not award HTTP certification for a different, correctly sized vector."""
+        encoded = {"object": "list", "model": "fixture", "data": [{
+            "object": "embedding", "index": 0,
+            "embedding": base64.b64encode(struct.pack("<2f", 0, 1)).decode(),
+        }]}
+        with self.assertRaisesRegex(RuntimeError, "differs from float"):
+            self.run_smoke(encoded)
+
+    def test_base64_parity_allows_float32_rounding(self) -> None:
+        """Use the same rounding allowance as the official SDK validator."""
+        self.run_smoke({"object": "list", "model": "fixture", "data": [{
+            "object": "embedding", "index": 0,
+            "embedding": base64.b64encode(struct.pack("<2f", 1 + 1e-7, 1e-7)).decode(),
+        }]})
 
 
 if __name__ == "__main__":

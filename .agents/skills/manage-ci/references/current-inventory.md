@@ -595,6 +595,9 @@ fail-open policy.
   `model_artifact_id` selects one artifact from a multi-artifact manifest,
   and reaches both the resolve and the verify call so verification cannot
   check a different file than the one downloaded.
+  The Linux native runtime-event gate selects `family-qwen3-dense` from the
+  Skippy smoke manifest; the registry permits `pull-request` and `main`
+  restoration while retaining its independent family-certification cadences.
 - `restore-smoke-inputs`: product extraction for consumers; delegates model
   restoration to `restore-test-model` rather than carrying a second copy of
   that sequence.

@@ -117,6 +117,7 @@ pub(super) fn unsupported_code(error: OpenAiError) -> Option<String> {
     error.body().error.code
 }
 
+/// Create a real local OpenAI backend for the supplied native model and configuration.
 pub(super) fn local_openai_backend(
     config: StageConfig,
     model_id: impl Into<String>,

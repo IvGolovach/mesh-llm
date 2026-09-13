@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def ordered_patches(patch_dir: Path) -> list[Path]:
+    """Validate and order both patch series exactly as native source preparation does."""
     patches = sorted(patch_dir.glob("*.patch"))
     for expected, patch in enumerate(patches, start=1):
         if not re.fullmatch(rf"{expected:04d}-.+\.patch", patch.name):
@@ -38,6 +39,7 @@ def ordered_patches(patch_dir: Path) -> list[Path]:
 
 
 def patch_digest(patch_dir: Path) -> str:
+    """Hash patch names and contents in validated application order."""
     digest = hashlib.sha256()
     for patch in ordered_patches(patch_dir):
         relative_name = patch.relative_to(patch_dir).as_posix()
@@ -47,6 +49,7 @@ def patch_digest(patch_dir: Path) -> str:
 
 
 def prepared_patched_sha(root: Path) -> str:
+    """Verify the prepared checkout's upstream pin, patch digest, schema, and clean HEAD."""
     checkout = root / ".deps/llama.cpp"
     prepared_upstream = (checkout / ".mesh-llm-upstream-sha").read_text(encoding="utf-8").strip()
     prepared_patch_digest = (checkout / ".mesh-llm-patch-digest").read_text(encoding="utf-8").strip()
@@ -69,6 +72,7 @@ def prepared_patched_sha(root: Path) -> str:
 
 
 def main() -> None:
+    """Print the verified patched revision or explain its provenance mismatch."""
     try:
         print(prepared_patched_sha(ROOT))
     except (OSError, RuntimeError, subprocess.CalledProcessError) as error:

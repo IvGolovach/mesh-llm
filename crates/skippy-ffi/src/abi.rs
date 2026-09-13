@@ -62,6 +62,7 @@ pub struct WorkloadInfoV1 {
 }
 
 impl Default for WorkloadInfoV1 {
+    /// Initialize the workload descriptor with its ABI size and version.
     fn default() -> Self {
         Self {
             abi_version: WORKLOAD_INFO_V1_ABI_VERSION,

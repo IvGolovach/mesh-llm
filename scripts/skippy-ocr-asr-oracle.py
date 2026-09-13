@@ -79,6 +79,7 @@ def compare_text(candidate: object, reference: object, expected: str | None,
 
 
 def request_json(base_url: str, path: str, payload: dict[str, object]) -> dict:
+    """POST JSON with a bounded timeout and require an object response."""
     request = urllib.request.Request(
         f"{base_url.rstrip('/')}{path}",
         data=json.dumps(payload).encode("utf-8"),
@@ -89,6 +90,7 @@ def request_json(base_url: str, path: str, payload: dict[str, object]) -> dict:
 
 
 def request_multipart(base_url: str, path: str, model: str, media: bytes) -> dict:
+    """Upload WAV with deterministic recognition parameters and a collision-checked boundary."""
     if BOUNDARY.encode("ascii") in media:
         raise RuntimeError("audio fixture collides with multipart boundary")
     body = (
@@ -115,6 +117,7 @@ def request_multipart(base_url: str, path: str, model: str, media: bytes) -> dic
 
 
 def response_json(request: urllib.request.Request) -> dict:
+    """Read a bounded oracle response and require the JSON object media contract."""
     with urllib.request.urlopen(request, timeout=240) as response:
         if response.headers.get_content_type() != "application/json":
             raise RuntimeError(f"{request.full_url} returned non-JSON content")
@@ -125,6 +128,7 @@ def response_json(request: urllib.request.Request) -> dict:
 
 
 def chat_text(response: dict, source: str) -> object:
+    """Extract text from exactly one well-formed chat completion choice."""
     choices = response.get("choices")
     if not isinstance(choices, list) or len(choices) != 1:
         raise RuntimeError(f"{source} returned invalid OCR choices")
@@ -139,6 +143,7 @@ def chat_text(response: dict, source: str) -> object:
 
 def compare_ocr(candidate_url: str, oracle_url: str, model: str, image: bytes,
                 expected: str) -> str:
+    """Compare candidate and oracle OCR with the independent fixture transcription."""
     payload = {
         "model": model,
         "messages": [{
@@ -165,6 +170,7 @@ def compare_ocr(candidate_url: str, oracle_url: str, model: str, image: bytes,
 
 def compare_asr(candidate_url: str, oracle_url: str, model: str, audio: bytes,
                 expected: str | None) -> str:
+    """Compare multipart ASR with the oracle's aligned chat-based audio prompt."""
     # llama-server's /audio/transcriptions substitutes its own default user
     # instruction. Compare the actual Skippy audio route with monolithic chat
     # using the exact instruction and media ordering that Skippy constructs.
@@ -194,6 +200,7 @@ def compare_asr(candidate_url: str, oracle_url: str, model: str, audio: bytes,
 
 
 def main() -> None:
+    """Validate media prerequisites and report class-specific oracle comparison evidence."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--candidate-url", required=True)
     parser.add_argument("--oracle-url", required=True)

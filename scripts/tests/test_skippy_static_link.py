@@ -29,6 +29,7 @@ OPTIONAL_ARCHIVES = (
 class SkippyStaticLinkTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        """Compile the real build script once for isolated backend-selection tests."""
         cls.binary_dir = tempfile.TemporaryDirectory()
         cls.addClassCleanup(cls.binary_dir.cleanup)
         cls.binary = Path(cls.binary_dir.name) / "build-script"
@@ -43,11 +44,13 @@ class SkippyStaticLinkTests(unittest.TestCase):
             raise RuntimeError(f"build script fixture failed: {result.stderr}")
 
     def _run(self, backend: str, flags: dict[str, str]) -> subprocess.CompletedProcess[str]:
+        """Execute a backend-selection fixture with Unix-style CMake cache lines."""
         return self._run_with_newline(backend, flags, "\n")
 
     def _run_with_newline(
         self, backend: str, flags: dict[str, str], newline: str
     ) -> subprocess.CompletedProcess[str]:
+        """Run the build script with isolated archives and controlled CMake cache line endings."""
         fixture = tempfile.TemporaryDirectory()
         self.addCleanup(fixture.cleanup)
         build_dir = Path(fixture.name) / "native"
@@ -78,6 +81,7 @@ class SkippyStaticLinkTests(unittest.TestCase):
         )
 
     def test_cpu_ignores_stale_gpu_and_blas_archives(self) -> None:
+        """Keep CPU linking independent of stale accelerator archives."""
         result = self._run("cpu", {
             "GGML_BLAS": "OFF", "GGML_CUDA": "OFF", "GGML_HIP": "OFF",
             "GGML_VULKAN": "OFF", "GGML_METAL": "OFF",
@@ -89,6 +93,7 @@ class SkippyStaticLinkTests(unittest.TestCase):
             self.assertNotIn(f"cargo:rustc-link-lib=framework={framework}", result.stdout)
 
     def test_active_metal_backend_links_only_cache_enabled_archive(self) -> None:
+        """Link only the selected Metal archive enabled by CMake."""
         result = self._run("metal", {"GGML_METAL": "ON", "GGML_BLAS": "ON"})
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn("cargo:rustc-link-lib=static=ggml-metal", result.stdout)
@@ -97,21 +102,25 @@ class SkippyStaticLinkTests(unittest.TestCase):
         self.assertNotIn("cargo:rustc-link-lib=static=ggml-cuda", result.stdout)
 
     def test_backend_cache_mismatch_fails_closed_despite_stale_archive(self) -> None:
+        """Reject a disabled selected backend even when a stale archive exists."""
         result = self._run("metal", {"GGML_METAL": "OFF"})
         self.assertNotEqual(0, result.returncode)
         self.assertIn("selected backend requires GGML_METAL=ON", result.stderr)
 
     def test_unselected_backend_cache_mismatch_fails_closed(self) -> None:
+        """Reject an accelerator enabled outside the selected native backend."""
         result = self._run("cpu", {"GGML_CUDA": "ON"})
         self.assertNotEqual(0, result.returncode)
         self.assertIn("staged backend mismatch: GGML_CUDA=ON", result.stderr)
 
     def test_crlf_cache_values_are_recognized(self) -> None:
+        """Recognize CMake booleans written with Windows line endings."""
         result = self._run_with_newline("metal", {"GGML_METAL": "ON"}, "\r\n")
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn("cargo:rustc-link-lib=static=ggml-metal", result.stdout)
 
     def test_enabled_staged_accelerator_requires_matching_selected_backend(self) -> None:
+        """Require the runtime backend to match enabled staged accelerators."""
         for key in ("GGML_CUDA", "GGML_HIP", "GGML_VULKAN", "GGML_METAL"):
             with self.subTest(key=key):
                 result = self._run("cpu", {key: "ON"})
@@ -119,6 +128,7 @@ class SkippyStaticLinkTests(unittest.TestCase):
                 self.assertIn(f"staged backend mismatch: {key}=ON", result.stderr)
 
     def test_cache_boolean_accepts_crlf_and_surrounding_whitespace(self) -> None:
+        """Normalize line endings and whitespace when reading CMake booleans."""
         for value in ("ON\r", " TRUE \r", " 1 "):
             with self.subTest(value=value):
                 result = self._run("metal", {"GGML_METAL": value})

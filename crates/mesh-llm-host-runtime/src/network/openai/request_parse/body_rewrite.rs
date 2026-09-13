@@ -13,6 +13,7 @@ struct BodyHeaders<'a> {
 }
 
 impl BodyHeaders<'_> {
+    /// Allow JSON rewriting only for an absent or application/json media type.
     fn permits_json(&self) -> bool {
         self.content_type.is_none_or(|value| {
             value.split(';').next().is_some_and(|media_type| {
@@ -22,6 +23,7 @@ impl BodyHeaders<'_> {
     }
 }
 
+/// Extract framing and media type from complete HTTP request headers.
 fn body_headers(raw: &[u8]) -> Option<BodyHeaders<'_>> {
     let mut headers = [httparse::EMPTY_HEADER; MAX_HEADERS];
     let mut parsed = httparse::Request::new(&mut headers);
@@ -100,6 +102,7 @@ pub fn inject_mesh_hooks_flag(raw: &mut Vec<u8>, enabled: bool) {
     replace_body(raw, end, &body);
 }
 
+/// Replace request framing and parsed body state together after a JSON rewrite.
 fn rebuild_request_body(
     request: &mut BufferedHttpRequest,
     header_end: usize,

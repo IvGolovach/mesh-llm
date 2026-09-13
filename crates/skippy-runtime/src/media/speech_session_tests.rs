@@ -3,6 +3,7 @@
 use super::*;
 use crate::{ModelInfo, RuntimeConfig, TensorRole};
 
+/// Load the opt-in speech model and projector without a synthetic runtime fallback.
 fn speech_fixture() -> Result<Option<StageModel>> {
     if std::env::var("SKIPPY_WORKLOAD_CLASS").as_deref() != Ok("speech_synthesis") {
         return Ok(None);
@@ -32,6 +33,7 @@ fn speech_fixture() -> Result<Option<StageModel>> {
     StageModel::open(path, &config).map(Some)
 }
 
+/// Prove a speech session can resume ordinary decoding with a real output row.
 fn assert_generation_reusable(model: &StageModel, session: &mut StageSession) -> Result<()> {
     session.reset()?;
     let tokens = model.tokenize("The mesh is ready.", true)?;
@@ -46,6 +48,7 @@ fn assert_generation_reusable(model: &StageModel, session: &mut StageSession) ->
 }
 
 #[test]
+/// Verify all speech exit paths restore ordinary session decoding.
 fn speech_success_cancellation_and_native_failure_leave_session_reusable() -> Result<()> {
     let Some(model) = speech_fixture()? else {
         return Ok(());

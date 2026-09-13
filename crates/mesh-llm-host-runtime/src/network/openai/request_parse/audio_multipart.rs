@@ -183,5 +183,8 @@ pub(super) fn multipart_model_field(content_type: &str, body: &[u8]) -> Result<O
         return Ok(None);
     };
     let value = std::str::from_utf8(&body[range])?.trim();
-    Ok((!value.is_empty() && value.len() <= 256).then(|| value.to_string()))
+    if value.len() > 256 {
+        bail!("multipart model field exceeds the 256-byte limit");
+    }
+    Ok((!value.is_empty()).then(|| value.to_string()))
 }

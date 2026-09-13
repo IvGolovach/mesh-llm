@@ -83,6 +83,7 @@ class TtsOracleTests(unittest.TestCase):
             commands: list[list[str]] = []
 
             def fake_run_logged(command: list[str], _log_path: Path, **_kwargs: object) -> None:
+                """Emulate independent TTS execution while preserving its logged-output contract."""
                 commands.append(command)
                 name = "tts-candidate.wav" if command[0] == "cargo" else "tts-monolithic-oracle.wav"
                 write_wav(work_dir / name, [1000, -1000] * 800)

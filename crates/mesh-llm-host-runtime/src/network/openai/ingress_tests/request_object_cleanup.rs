@@ -10,6 +10,7 @@ use tokio::net::{TcpListener, TcpStream};
 struct CompletionRecorder(Mutex<Vec<String>>);
 
 impl PluginRpcBridge for CompletionRecorder {
+    /// Record blob completion requests so rejection tests can verify object cleanup.
     fn handle_request(
         &self,
         plugin_name: String,
@@ -38,6 +39,7 @@ impl PluginRpcBridge for CompletionRecorder {
         })
     }
 
+    /// Ignore notifications in the request-object cleanup test double.
     fn handle_notification(&self, _: String, _: String, _: String) -> BridgeFuture<()> {
         Box::pin(async {})
     }

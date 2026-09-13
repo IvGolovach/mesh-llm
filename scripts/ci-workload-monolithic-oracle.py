@@ -29,6 +29,7 @@ RERANK_MAX_ABS_DELTA = 1e-4
 
 
 def request_json(base_url: str, path: str, payload: dict[str, object]) -> dict:
+    """POST JSON with a bounded timeout and require an object response."""
     request = urllib.request.Request(
         f"{base_url}{path}",
         data=json.dumps(payload).encode("utf-8"),
@@ -182,6 +183,7 @@ def compare_encoder_decoder(candidate: dict, reference: dict) -> str:
 
 
 def monolithic_completion(oracle_cli: str, model_path: str) -> dict:
+    """Run the independent CPU oracle and strip only its terminal end-of-text marker."""
     command = [
         oracle_cli, "-m", model_path, "-p", ENCODER_DECODER_PROMPT,
         "-n", "32", "-c", "0", "-b", "2048", "-ub", "2048", "-ngl", "0",
@@ -206,6 +208,7 @@ def monolithic_completion(oracle_cli: str, model_path: str) -> dict:
 
 
 def main() -> None:
+    """Select the independent CLI or server oracle for the requested workload."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--candidate-url", required=True)
     parser.add_argument("--oracle-url")

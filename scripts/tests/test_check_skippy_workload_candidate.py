@@ -21,6 +21,7 @@ SPEC.loader.exec_module(CANDIDATE)
 
 class CandidateBuildFreshnessTests(unittest.TestCase):
     def test_producer_binds_source_native_stamp_and_every_executable(self) -> None:
+        """Reject producer evidence after source, native build, or executable replacement."""
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             native = root / "native"
@@ -55,6 +56,7 @@ class CandidateBuildFreshnessTests(unittest.TestCase):
                     CANDIDATE.write_producer(manifest, binary, native, test_binary, snapshot)
 
     def _check(self, binary: Path, build_dir: Path) -> subprocess.CompletedProcess[str]:
+        """Run the production candidate checker against the isolated build fixture."""
         return subprocess.run(
             [
                 sys.executable,
@@ -70,6 +72,7 @@ class CandidateBuildFreshnessTests(unittest.TestCase):
         )
 
     def test_accepts_binary_linked_after_stamped_native_build(self) -> None:
+        """Accept a candidate linked after its recorded native build."""
         with tempfile.TemporaryDirectory() as temp_dir:
             directory = Path(temp_dir)
             stamp = directory / ".mesh-llm-build-stamp"
@@ -81,6 +84,7 @@ class CandidateBuildFreshnessTests(unittest.TestCase):
             self.assertEqual(0, self._check(binary, directory).returncode)
 
     def test_rejects_binary_older_than_or_equal_to_native_stamp(self) -> None:
+        """Reject stale candidates even when their executable paths still exist."""
         with tempfile.TemporaryDirectory() as temp_dir:
             directory = Path(temp_dir)
             stamp = directory / ".mesh-llm-build-stamp"
@@ -96,6 +100,7 @@ class CandidateBuildFreshnessTests(unittest.TestCase):
                     self.assertIn("candidate executable predates", result.stderr)
 
     def test_rejects_missing_executable_or_stamp(self) -> None:
+        """Require the candidate executable and its native-build stamp."""
         with tempfile.TemporaryDirectory() as temp_dir:
             directory = Path(temp_dir)
             binary = directory / "skippy-server"

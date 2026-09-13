@@ -880,6 +880,7 @@ async fn prepare_auto_route_decision(
     }
 }
 
+/// Return a path-specific unsupported-workload response and record the rejection.
 async fn send_workload_unsupported(
     tcp_stream: ClientStream,
     workload: mesh::ModelWorkloadClass,
@@ -913,6 +914,7 @@ async fn send_media_unsupported(
     )
 }
 
+/// Release request-scoped media objects before reporting an automatic-routing rejection.
 async fn send_auto_route_rejection(
     tcp_stream: ClientStream,
     rejection: AutoRouteRejection,

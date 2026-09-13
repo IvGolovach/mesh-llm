@@ -818,6 +818,7 @@ mod tests {
 
     #[cfg(unix)]
     #[tokio::test]
+    /// Verify a completed server can immediately reuse its listening address.
     async fn serving_listener_can_rebind_after_server_closes_connection() -> Result<()> {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -841,6 +842,7 @@ mod tests {
     }
 
     #[tokio::test]
+    /// Preserve exclusive address ownership while the first listener remains live.
     async fn serving_listener_rejects_another_live_listener() -> Result<()> {
         let listener = bind_serve_listener("127.0.0.1:0".parse()?)?;
         let error = bind_serve_listener(listener.local_addr()?)

@@ -50,6 +50,7 @@ pub struct WorkloadInfo {
 impl TryFrom<skippy_ffi::WorkloadInfoV1> for WorkloadInfo {
     type Error = anyhow::Error;
 
+    /// Validate the native descriptor layout and translate supported workload and pooling values.
     fn try_from(raw: skippy_ffi::WorkloadInfoV1) -> Result<Self> {
         if raw.abi_version != skippy_ffi::WORKLOAD_INFO_V1_ABI_VERSION
             || raw.struct_size != std::mem::size_of::<skippy_ffi::WorkloadInfoV1>() as u32
@@ -1075,6 +1076,7 @@ mod output_capacity_tests {
     };
 
     #[test]
+    /// Cover all supported native workload and pooling discriminants.
     fn workload_descriptor_converts_all_native_classes_and_pooling_modes() {
         let cases = [
             (
@@ -1115,6 +1117,7 @@ mod output_capacity_tests {
     }
 
     #[test]
+    /// Reject incompatible native descriptor versions and sizes.
     fn workload_descriptor_rejects_incompatible_layout_versions() {
         let invalid_version = skippy_ffi::WorkloadInfoV1 {
             abi_version: skippy_ffi::WORKLOAD_INFO_V1_ABI_VERSION + 1,

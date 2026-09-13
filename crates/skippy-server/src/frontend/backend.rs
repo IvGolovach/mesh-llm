@@ -1131,6 +1131,7 @@ impl OpenAiBackend for StageOpenAiBackend {
         })))
     }
 
+    /// Execute embeddings only through an admitted local full-model workload.
     async fn embeddings(
         &self,
         request: EmbeddingsRequest,
@@ -1186,6 +1187,7 @@ impl OpenAiBackend for StageOpenAiBackend {
         ))
     }
 
+    /// Execute reranking only through an admitted local full-model workload.
     async fn rerank(
         &self,
         request: RerankRequest,
@@ -1241,6 +1243,7 @@ impl OpenAiBackend for StageOpenAiBackend {
         })
     }
 
+    /// Execute native speech synthesis with the configured local projector.
     async fn audio_speech(
         &self,
         request: AudioSpeechRequest,
@@ -1307,6 +1310,7 @@ impl OpenAiBackend for StageOpenAiBackend {
         AudioResponse::new(audio.bytes, content_type)
     }
 
+    /// Decode uploaded audio using the local speech-recognition runtime.
     async fn audio_transcription(
         &self,
         request: AudioTranscriptionRequest,
@@ -1315,6 +1319,7 @@ impl OpenAiBackend for StageOpenAiBackend {
         self.audio_to_text(request, false, context).await
     }
 
+    /// Translate uploaded audio using the local speech-recognition runtime.
     async fn audio_translation(
         &self,
         request: AudioTranscriptionRequest,

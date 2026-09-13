@@ -27,6 +27,7 @@ from workload_fixtures import (
 
 
 def request_json(base_url: str, path: str, payload: dict[str, object]) -> dict:
+    """POST JSON with a bounded timeout and require an object response."""
     request = urllib.request.Request(
         f"{base_url}{path}",
         data=json.dumps(payload).encode("utf-8"),
@@ -43,6 +44,7 @@ def request_json(base_url: str, path: str, payload: dict[str, object]) -> dict:
 
 
 def request_bytes(base_url: str, path: str, payload: dict[str, object]) -> tuple[str, bytes]:
+    """POST JSON with a bounded timeout and return the response media type and bytes."""
     request = urllib.request.Request(
         f"{base_url}{path}",
         data=json.dumps(payload).encode("utf-8"),
@@ -54,6 +56,7 @@ def request_bytes(base_url: str, path: str, payload: dict[str, object]) -> tuple
 
 
 def request_multipart(base_url: str, path: str, model: str, media_path: Path) -> dict:
+    """Upload a WAV fixture with the selected model and require a JSON object response."""
     boundary = "mesh-llm-workload-smoke"
     body = (
         f"--{boundary}\r\n"
@@ -80,6 +83,7 @@ def request_multipart(base_url: str, path: str, model: str, media_path: Path) ->
 
 
 def smoke_embedding(base_url: str, model: str) -> None:
+    """Check vector metadata, normalization, semantic ordering, usage, and float/base64 parity."""
     inputs = list(EMBEDDING_INPUTS)
     result = request_json(
         base_url,
@@ -134,11 +138,16 @@ def smoke_embedding(base_url: str, model: str) -> None:
     raw = base64.b64decode(payload, validate=True)
     if len(raw) != len(vectors[0]) * struct.calcsize("<f"):
         raise RuntimeError("base64 embedding has the wrong byte length")
-    if not all(math.isfinite(value) for value in struct.unpack(f"<{len(vectors[0])}f", raw)):
+    values = struct.unpack(f"<{len(vectors[0])}f", raw)
+    if not all(math.isfinite(value) for value in values):
         raise RuntimeError("base64 embedding contains a non-finite value")
+    if not all(math.isclose(value, expected, rel_tol=1e-5, abs_tol=1e-6)
+               for value, expected in zip(values, vectors[0])):
+        raise RuntimeError("base64 embedding differs from float response")
 
 
 def smoke_rerank(base_url: str, model: str) -> None:
+    """Require finite scores with the relevant document strictly ahead of its distractor."""
     result = request_json(
         base_url,
         "/rerank",
@@ -168,6 +177,7 @@ def smoke_rerank(base_url: str, model: str) -> None:
 
 
 def smoke_encoder_decoder(base_url: str, model: str) -> None:
+    """Verify a deterministic translation contains the expected language anchor."""
     result = request_json(
         base_url,
         "/completions",
@@ -190,6 +200,7 @@ def smoke_encoder_decoder(base_url: str, model: str) -> None:
 
 
 def smoke_ocr(base_url: str, model: str, media_path: Path) -> None:
+    """Submit the image fixture through chat and require a nonempty transcription."""
     image = base64.b64encode(media_path.read_bytes()).decode("ascii")
     result = request_json(
         base_url,
@@ -218,6 +229,7 @@ def smoke_ocr(base_url: str, model: str, media_path: Path) -> None:
 
 
 def smoke_speech_synthesis(base_url: str, model: str) -> None:
+    """Validate generated audio framing and nonempty sample content."""
     content_type, audio = request_bytes(
         base_url,
         "/audio/speech",
@@ -243,6 +255,7 @@ def smoke_speech_synthesis(base_url: str, model: str) -> None:
 
 
 def smoke_speech_recognition(base_url: str, model: str, media_path: Path) -> None:
+    """Submit the audio fixture and require a nonempty transcription."""
     result = request_multipart(base_url, "/audio/transcriptions", model, media_path)
     text = result.get("text")
     if not isinstance(text, str) or not text.strip():
@@ -250,6 +263,7 @@ def smoke_speech_recognition(base_url: str, model: str, media_path: Path) -> Non
 
 
 def main() -> None:
+    """Dispatch the workload smoke with its required model and media fixtures."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--model", required=True)

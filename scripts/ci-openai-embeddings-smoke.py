@@ -73,6 +73,9 @@ def main() -> None:
     values = struct.unpack(f"<{dimensions}f", raw)
     if not all(math.isfinite(value) for value in values):
         raise RuntimeError("base64 embedding contains a non-finite value")
+    if not all(math.isclose(value, expected, rel_tol=1e-5, abs_tol=1e-6)
+               for value, expected in zip(values, response.data[0].embedding)):
+        raise RuntimeError("base64 embedding differs from float response")
 
     print(
         f"openai-python embeddings smoke passed: model={args.model} "

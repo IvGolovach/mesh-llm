@@ -566,6 +566,7 @@ impl OpenAiBackend for FakeBackend {
         ])))
     }
 
+    /// Return indexed embedding fixtures with the requested encoding.
     async fn embeddings(
         &self,
         request: EmbeddingsRequest,
@@ -585,6 +586,7 @@ impl OpenAiBackend for FakeBackend {
         ))
     }
 
+    /// Return ranked fixtures honoring `top_n` and document inclusion.
     async fn rerank(
         &self,
         request: RerankRequest,
@@ -609,6 +611,7 @@ impl OpenAiBackend for FakeBackend {
         })
     }
 
+    /// Return a binary speech fixture with the requested content type.
     async fn audio_speech(
         &self,
         request: AudioSpeechRequest,
@@ -620,6 +623,7 @@ impl OpenAiBackend for FakeBackend {
         )
     }
 
+    /// Return a transcription fixture containing the upload length.
     async fn audio_transcription(
         &self,
         request: AudioTranscriptionRequest,
@@ -630,6 +634,7 @@ impl OpenAiBackend for FakeBackend {
         })
     }
 
+    /// Return a translation fixture containing the upload length.
     async fn audio_translation(
         &self,
         request: AudioTranscriptionRequest,

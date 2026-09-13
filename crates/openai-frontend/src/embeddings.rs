@@ -170,11 +170,13 @@ mod tests {
     use super::*;
 
     #[test]
+    /// Verify embeddings use little-endian float32 base64 encoding.
     fn base64_encoding_is_little_endian_f32() {
         assert_eq!(encode_f32_base64(&[1.0, -2.0]), "AACAPwAAAMA=");
     }
 
     #[test]
+    /// Reject embedding requests without inputs or with unsupported encodings.
     fn request_rejects_empty_batches_and_unknown_formats() {
         let mut request = EmbeddingsRequest {
             model: "embed".into(),
@@ -190,6 +192,7 @@ mod tests {
     }
 
     #[test]
+    /// Reject negative embedding token IDs before backend execution.
     fn request_rejects_negative_token_ids() {
         let request = EmbeddingsRequest {
             model: "embed".into(),

@@ -211,6 +211,7 @@ pub(crate) fn identity_hash_for(input: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
+/// Expose only remotely resolvable model identities as public catalog IDs.
 pub(crate) fn public_model_id_from_identity(identity: &ServedModelIdentity) -> Option<String> {
     match identity.source_kind {
         ModelSourceKind::HuggingFace => identity
@@ -240,6 +241,7 @@ pub(crate) fn public_model_id_from_identity(identity: &ServedModelIdentity) -> O
     }
 }
 
+/// Normalize demand references without converting local paths into remote model identities.
 pub(crate) fn canonical_demand_model_ref(model: &str) -> String {
     if let Ok(model_ref) = model_ref::ModelRef::parse(model) {
         return model_ref.display_id();

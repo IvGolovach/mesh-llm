@@ -13,6 +13,7 @@ use super::LocalSessionCleanupGuard;
 
 impl StageOpenAiBackend {
     #[allow(clippy::too_many_arguments)]
+    /// Encode once, decode bounded tokens, and clean up the exclusive session on every exit.
     pub(super) fn generate_encoder_decoder_tokens(
         &self,
         prompt_token_ids: &[i32],

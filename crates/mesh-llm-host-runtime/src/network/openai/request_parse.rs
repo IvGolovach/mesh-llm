@@ -567,6 +567,7 @@ fn body_limits_for_path(path: &str, default: HttpReadLimits) -> HttpReadLimits {
     }
 }
 
+/// Identify multipart audio endpoints before attempting JSON parsing.
 fn is_audio_upload_path(path: &str) -> bool {
     matches!(
         path.split('?').next().unwrap_or(path),

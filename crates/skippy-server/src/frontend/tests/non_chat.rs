@@ -2,7 +2,7 @@ use super::*;
 
 use openai_frontend::{
     AudioFormat, AudioSpeechRequest, AudioTranscriptionRequest, EmbeddingInput, EmbeddingOutput,
-    EmbeddingsRequest, RerankDocument, RerankRequest,
+    EmbeddingsRequest, RerankDocument, RerankRequest, RerankResult,
 };
 use skippy_runtime::ModelWorkload;
 
@@ -170,12 +170,81 @@ fn workload_stage_config(fixture: &WorkloadFixture) -> StageConfig {
 /// Compare vector dimensions and each component with a bounded numeric tolerance.
 fn assert_vectors_close(left: &[f32], right: &[f32]) {
     assert_eq!(left.len(), right.len());
+    assert!(left.iter().chain(right).all(|value| value.is_finite()));
     let maximum_delta = left
         .iter()
         .zip(right)
         .map(|(left, right)| (left - right).abs())
         .fold(0.0_f32, f32::max);
     assert!(maximum_delta <= 1e-5, "embedding delta {maximum_delta}");
+}
+
+/// Distinct inputs must not collapse to one otherwise well-formed embedding vector.
+fn require_distinct_embeddings(left: &EmbeddingOutput, right: &EmbeddingOutput) -> Result<()> {
+    let (EmbeddingOutput::Float(left), EmbeddingOutput::Float(right)) = (left, right) else {
+        bail!("float embedding request returned a non-float payload");
+    };
+    anyhow::ensure!(left.len() == right.len(), "embedding dimensions differ");
+    anyhow::ensure!(
+        left.iter().chain(right).all(|value| value.is_finite()),
+        "embedding contains non-finite values"
+    );
+    anyhow::ensure!(
+        left.iter()
+            .zip(right)
+            .any(|(left, right)| (left - right).abs() > 1e-5),
+        "distinct inputs returned identical embeddings"
+    );
+    Ok(())
+}
+
+/// The relevant fixture must strictly outrank the unrelated fixture in response order.
+fn require_relevant_document_first(results: &[RerankResult]) -> Result<()> {
+    anyhow::ensure!(
+        results.len() == 2 && results[0].index == 0 && results[1].index == 1,
+        "rerank did not place the relevant document first"
+    );
+    anyhow::ensure!(
+        results
+            .iter()
+            .all(|result| result.relevance_score.is_finite())
+            && results[0].relevance_score > results[1].relevance_score,
+        "the relevant document did not outrank the unrelated document"
+    );
+    Ok(())
+}
+
+/// A constant normalized vector is not evidence that embeddings depend on their inputs.
+#[test]
+fn embedding_certification_rejects_constant_vectors() {
+    let query = EmbeddingOutput::Float(vec![1.0, 0.0]);
+    assert!(require_distinct_embeddings(&query, &query).is_err());
+    assert!(require_distinct_embeddings(&query, &EmbeddingOutput::Float(vec![0.0, 1.0])).is_ok());
+}
+
+/// Ties, reversed scores, and reordered indexes must not certify a broken ranker.
+#[test]
+fn rerank_certification_rejects_degenerate_or_misordered_results() {
+    let mut results = vec![
+        RerankResult {
+            index: 0,
+            relevance_score: 0.9,
+            document: None,
+        },
+        RerankResult {
+            index: 1,
+            relevance_score: 0.1,
+            document: None,
+        },
+    ];
+    assert!(require_relevant_document_first(&results).is_ok());
+    for score in [0.1, 0.0, f32::NAN, f32::INFINITY] {
+        results[0].relevance_score = score;
+        assert!(require_relevant_document_first(&results).is_err());
+    }
+    results[0].relevance_score = 0.9;
+    results.swap(0, 1);
+    assert!(require_relevant_document_first(&results).is_err());
 }
 
 /// Check native vector shape, determinism and semantic separation for pinned inputs.
@@ -213,6 +282,8 @@ async fn certify_embedding(backend: &StageOpenAiBackend) -> Result<()> {
         assert!((norm - 1.0).abs() <= 1e-4, "embedding norm {norm}");
         assert_vectors_close(left, right);
     }
+    require_distinct_embeddings(&first.data[0].embedding, &first.data[1].embedding)?;
+    require_distinct_embeddings(&second.data[0].embedding, &second.data[1].embedding)?;
     Ok(())
 }
 
@@ -243,6 +314,8 @@ async fn certify_rerank(backend: &StageOpenAiBackend) -> Result<()> {
         assert!((left.relevance_score - right.relevance_score).abs() <= 1e-6);
         assert!(left.document.is_some());
     }
+    require_relevant_document_first(&first.results)?;
+    require_relevant_document_first(&second.results)?;
     Ok(())
 }
 

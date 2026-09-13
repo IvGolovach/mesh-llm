@@ -445,6 +445,7 @@ fn static_archive_exists(
     build_dir.join(unix_archive).exists() || build_dir.join(msvc_archive).exists()
 }
 
+/// Read CMake booleans while tolerating platform line endings and whitespace.
 fn cmake_bool_enabled(cache: &std::path::Path, key: &str) -> bool {
     let Ok(contents) = std::fs::read_to_string(cache) else {
         return false;
@@ -452,6 +453,7 @@ fn cmake_bool_enabled(cache: &std::path::Path, key: &str) -> bool {
     cmake_cache_bool(&contents, key)
 }
 
+/// Resolve an enabled backend archive without trusting stale native build outputs.
 fn configured_backend_archive(
     build_dir: &std::path::Path,
     cmake_cache: &std::path::Path,

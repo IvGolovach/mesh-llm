@@ -648,6 +648,7 @@ class SkippyFamilyBatteryTests(unittest.TestCase):
             )
 
     def test_workload_dry_run_needs_no_oracle_and_forwards_startup_deadline(self) -> None:
+        """Keep planning independent of oracle availability while forwarding the startup deadline."""
         model = self._model()
         model.update({
             "class": "embedding",
@@ -684,6 +685,7 @@ class SkippyFamilyBatteryTests(unittest.TestCase):
         self.assertIn("--family second-family", commands[3])
 
     def test_supplied_plan_cannot_omit_a_manifest_selected_family(self) -> None:
+        """Reject a supplied plan that drops a manifest-selected family."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp = Path(temp_dir)
             first = self._model()
@@ -798,6 +800,7 @@ class SkippyFamilyBatteryTests(unittest.TestCase):
             )
             model.parent.mkdir(parents=True)
             def gguf_string(value: str) -> bytes:
+                """Encode UTF-8 text using the GGUF length-prefixed representation."""
                 encoded = value.encode("utf-8")
                 return struct.pack("<Q", len(encoded)) + encoded
 

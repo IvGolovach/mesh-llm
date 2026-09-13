@@ -87,6 +87,7 @@ mod tests {
     use super::*;
 
     #[test]
+    /// Require textual content in rerank document objects.
     fn document_objects_require_text() {
         let document = RerankDocument::Object(serde_json::json!({"title": "missing"}));
         assert!(document.text().is_err());

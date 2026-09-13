@@ -17,6 +17,7 @@ SPEC.loader.exec_module(source)
 
 class LlamaOracleSourceTests(unittest.TestCase):
     def test_digest_includes_generated_series_in_prepare_order(self) -> None:
+        """Include generated patches in the digest using native preparation order."""
         with tempfile.TemporaryDirectory() as temp_dir:
             patches = Path(temp_dir)
             (patches / "0001-base.patch").write_bytes(b"base\n")
@@ -38,6 +39,7 @@ class LlamaOracleSourceTests(unittest.TestCase):
                 source.patch_digest(patches)
 
     def test_prepared_checkout_rejects_patch_queue_drift(self) -> None:
+        """Reject an oracle checkout after its source patch queue changes."""
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             checkout = root / ".deps/llama.cpp"

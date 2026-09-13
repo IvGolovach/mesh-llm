@@ -138,6 +138,7 @@ pub struct AudioTranscriptionResponse {
 mod tests {
     use super::*;
 
+    /// Build a valid transcription fixture for multipart parameter tests.
     fn transcription(temperature: Option<f32>) -> AudioTranscriptionRequest {
         AudioTranscriptionRequest {
             model: "fixture".to_string(),
@@ -151,6 +152,7 @@ mod tests {
     }
 
     #[test]
+    /// Reject non-finite and out-of-range transcription temperatures.
     fn transcription_temperature_is_bounded_to_openai_range() {
         for temperature in [None, Some(0.0), Some(0.5), Some(1.0)] {
             assert!(transcription(temperature).validate().is_ok());
