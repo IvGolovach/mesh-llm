@@ -492,6 +492,7 @@ pub(super) async fn add_serving_assignment(
     node.regossip().await;
 }
 
+/// Publish runtime-probed capabilities and workload class onto the model's descriptor.
 pub(super) async fn set_runtime_verified_served_model_capabilities(
     node: &mesh::Node,
     primary_model_name: &str,
@@ -514,6 +515,8 @@ pub(super) async fn set_runtime_verified_served_model_capabilities(
     node.upsert_served_model_descriptor(descriptor).await;
 }
 
+/// Preserve existing model identity while replacing inferred capabilities with runtime facts.
+/// Missing descriptors receive a fallback identity before their workload is advertised.
 pub(super) fn runtime_verified_served_model_descriptor(
     existing: Option<mesh::ServedModelDescriptor>,
     primary_model_name: &str,

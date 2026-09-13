@@ -158,6 +158,7 @@ impl RequestSummaryMetadata {
     }
 }
 
+/// Project known endpoints to fixed log labels; unknown paths contribute no label.
 const fn openai_route_label(route: OpenAiFrontendRoute) -> Option<&'static str> {
     match route {
         OpenAiFrontendRoute::Health => Some("health"),

@@ -224,6 +224,7 @@ async fn collect_available_models_for_auto_route(
     available_models
 }
 
+/// Admit explicit workloads or select a compatible automatic route, preserving committee mode.
 async fn resolve_auto_routed_model(
     node: &mesh::Node,
     request: &mut proxy::BufferedHttpRequest,
@@ -345,6 +346,7 @@ async fn resolve_auto_routed_model(
     }
 }
 
+/// Prefer ready ingress models, retaining the admitted pool if none is ready yet.
 async fn auto_route_pool_for_ready_models<'a>(
     node: &mesh::Node,
     targets: &election::ModelTargets,
@@ -371,6 +373,7 @@ async fn auto_route_pool_for_ready_models<'a>(
     auto_route::pool_for_ready_models(available, &ready_models)
 }
 
+/// Check workload-aware ingress readiness, including remote and local-startup fallbacks.
 async fn auto_route_model_has_ready_ingress_target(
     node: &mesh::Node,
     targets: &election::ModelTargets,
@@ -842,6 +845,7 @@ fn prepare_cache_routing_body(
     }
 }
 
+/// Resolve workload admission before enabling JSON hooks and recording model demand.
 async fn prepare_auto_route_decision(
     request: &mut proxy::BufferedHttpRequest,
     ctx: &IngressRouteContext<'_>,

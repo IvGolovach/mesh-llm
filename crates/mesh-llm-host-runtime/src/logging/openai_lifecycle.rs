@@ -780,6 +780,7 @@ fn terminal_outcome(result: OpenAiTerminalResult) -> TerminalOutcome {
     }
 }
 
+/// Map backend operations to bounded labels, separating non-chat and streaming workloads.
 const fn operation_label(operation: OpenAiBackendOperation) -> &'static str {
     match operation {
         OpenAiBackendOperation::Models => "models",

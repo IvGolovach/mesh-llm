@@ -282,6 +282,7 @@ def _load_manifest(path: Path) -> tuple[dict[str, Any], str]:
 
 
 def _validate_policy(value: object) -> dict[str, Any]:
+    """Enforce each profile's status, oracle type, and exact required lane contract."""
     policy = _object(value, "policy")
     _exact_keys(policy, {"profiles", "cadences"}, "policy")
     cadences = _string_list(policy.get("cadences"), "policy.cadences")
@@ -340,6 +341,7 @@ def _validate_policy(value: object) -> dict[str, Any]:
 
 
 def _normalize_models(value: object, policy: dict[str, Any]) -> list[dict[str, Any]]:
+    """Validate family rows and derive their workload-specific lanes and execution budgets."""
     if not isinstance(value, list) or not value:
         raise PlanError("models must be a non-empty array")
     models: list[dict[str, Any]] = []

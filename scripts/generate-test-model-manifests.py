@@ -124,6 +124,7 @@ def _artifact(value: Any, field: str) -> dict[str, Any]:
 
 
 def _validate_registry(raw: Any) -> dict[str, Any]:
+    """Reject ambiguous identities, unauthorized cadences, and invalid certification profiles."""
     registry = _object(raw, "registry")
     _exact_keys(
         registry,
@@ -245,6 +246,7 @@ def _family_artifact(artifact: dict[str, Any]) -> dict[str, Any]:
 
 
 def _family_manifest(registry: dict[str, Any]) -> dict[str, Any]:
+    """Project certified rows while preserving their independent family execution cadences."""
     models: list[dict[str, Any]] = []
     for row in registry["artifacts"]:
         if "llama-family-certification" not in row["suites"]:

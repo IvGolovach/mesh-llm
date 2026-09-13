@@ -110,8 +110,8 @@ def smoke_embedding(base_url: str, model: str) -> None:
         vectors.append(values)
     if len({len(vector) for vector in vectors}) != 1:
         raise RuntimeError("embedding dimensions differ within one response")
-    related = sum(left * right for left, right in zip(vectors[0], vectors[1]))
-    unrelated = sum(left * right for left, right in zip(vectors[0], vectors[2]))
+    related = sum(left * right for left, right in zip(vectors[0], vectors[1], strict=True))
+    unrelated = sum(left * right for left, right in zip(vectors[0], vectors[2], strict=True))
     if related <= unrelated:
         raise RuntimeError(
             f"embedding placed unrelated text closer: related={related}, unrelated={unrelated}"
@@ -142,7 +142,7 @@ def smoke_embedding(base_url: str, model: str) -> None:
     if not all(math.isfinite(value) for value in values):
         raise RuntimeError("base64 embedding contains a non-finite value")
     if not all(math.isclose(value, expected, rel_tol=1e-5, abs_tol=1e-6)
-               for value, expected in zip(values, vectors[0])):
+               for value, expected in zip(values, vectors[0], strict=True)):
         raise RuntimeError("base64 embedding differs from float response")
 
 

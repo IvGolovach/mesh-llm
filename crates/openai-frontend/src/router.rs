@@ -1227,6 +1227,7 @@ fn lifecycle_method(method: &Method) -> OpenAiRequestMethod {
     }
 }
 
+/// Classify the endpoint path for lifecycle events without retaining query parameters.
 fn lifecycle_route(uri: &Uri) -> OpenAiFrontendRoute {
     match uri.path() {
         "/health" => OpenAiFrontendRoute::Health,

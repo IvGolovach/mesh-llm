@@ -103,6 +103,7 @@ pub struct ServedModelMetadata {
 }
 
 impl ServedModelMetadata {
+    /// Report whether all optional metadata is absent; a workload-only record is nonempty.
     pub fn is_empty(&self) -> bool {
         self.workload_class.is_none()
             && self.architecture.is_none()

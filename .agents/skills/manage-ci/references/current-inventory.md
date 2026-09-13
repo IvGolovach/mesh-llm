@@ -589,15 +589,14 @@ fail-open policy.
   integrity, family capability tags, and allowed suite/cadence membership.
   `scripts/generate-test-model-manifests.py` owns the family battery and
   suite-specific projections; CI contract tests reject stale projections.
+- The Linux CPU runtime-event gate consumes `family-qwen3-dense` from
+  `skippy-ci-smoke.json` at pull-request, main, or manual cadence.
 - `restore-test-model`: the single implementation of model resolve, cache,
   download, and verify. Resolves generated suite manifests, uses exact
   digest-bearing cache keys, and stream-verifies size and SHA-256 before use.
   `model_artifact_id` selects one artifact from a multi-artifact manifest,
   and reaches both the resolve and the verify call so verification cannot
   check a different file than the one downloaded.
-  The Linux native runtime-event gate selects `family-qwen3-dense` from the
-  Skippy smoke manifest; the registry permits `pull-request` and `main`
-  restoration while retaining its independent family-certification cadences.
 - `restore-smoke-inputs`: product extraction for consumers; delegates model
   restoration to `restore-test-model` rather than carrying a second copy of
   that sequence.

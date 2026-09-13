@@ -54,6 +54,7 @@ async fn context_compatible_targets(
     compatible
 }
 
+/// Require a workload-compatible target that fits context and passes strict health routing.
 pub(crate) async fn model_has_eligible_target(
     node: &mesh::Node,
     model: &str,
@@ -72,6 +73,7 @@ pub(crate) async fn model_has_eligible_target(
     has_routable_candidate(&affinity.route_strict_eligible_candidates(model, &context_compatible))
 }
 
+/// Apply the same workload, context, and health admission to advertised remote hosts.
 pub(crate) async fn model_has_eligible_remote_host(
     node: &mesh::Node,
     model: &str,
@@ -124,6 +126,7 @@ pub(crate) fn pool_for_ready_models<'a>(
     }
 }
 
+/// Select model names with a ready remote host for this endpoint and context budget.
 pub(crate) async fn ready_remote_models<'a>(
     node: &mesh::Node,
     required_tokens: Option<u32>,

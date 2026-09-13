@@ -13,8 +13,11 @@ use crate::{
 };
 
 unsafe extern "C" {
+    /// Borrow a token embedding; negative indices count from the last output.
+    /// Invalid output indices return null.
     pub fn llama_get_embeddings_ith(ctx: *mut Opaque, index: i32) -> *mut f32;
 
+    /// Select embedding output instead of logits for subsequent context evaluation.
     pub fn llama_set_embeddings(ctx: *mut Opaque, embeddings: bool);
 
     pub fn llama_log_set(log_callback: LlamaLogCallback, user_data: *mut c_void);
@@ -128,6 +131,7 @@ unsafe extern "C" {
         out_desc: *mut ActivationBoundaryDesc,
     ) -> bool;
 
+    /// Query an opened model's workload class, pooling, and full-model constraints.
     pub fn skippy_model_workload_info_v1(
         model: *const Model,
         out_info: *mut WorkloadInfoV1,
@@ -188,6 +192,7 @@ unsafe extern "C" {
         out_error: *mut *mut Error,
     ) -> Status;
 
+    /// Compute one normalized token-input embedding into a caller-owned buffer.
     pub fn skippy_session_embed(
         session: *mut Session,
         token_ids: *const i32,
@@ -198,6 +203,7 @@ unsafe extern "C" {
         out_error: *mut *mut Error,
     ) -> Status;
 
+    /// Score a NUL-terminated query/document pair and report its token usage.
     pub fn skippy_session_rerank(
         session: *mut Session,
         query: *const c_char,
@@ -207,6 +213,7 @@ unsafe extern "C" {
         out_error: *mut *mut Error,
     ) -> Status;
 
+    /// Encode source tokens and return the encoder-decoder model's first decoder token.
     pub fn skippy_session_encode_prompt(
         session: *mut Session,
         token_ids: *const i32,
@@ -749,24 +756,32 @@ unsafe extern "C" {
 
     pub fn mtmd_context_params_default() -> MtmdContextParams;
 
+    /// Inspect the projector's audio-generation requirements and output metadata.
     pub fn mtmd_gen_audio_get_info(ctx: *const MtmdContext) -> MtmdGenAudioInfo;
 
+    /// Allocate an audio generator borrowing the supplied llama and projector contexts.
     pub fn mtmd_helper_gen_audio_init(
         lctx: *mut Opaque,
         mctx: *mut MtmdContext,
     ) -> *mut MtmdHelperGenAudio;
 
+    /// Release the generator allocated by `mtmd_helper_gen_audio_init`.
     pub fn mtmd_helper_gen_audio_free(ctx: *mut MtmdHelperGenAudio);
 
+    /// Clear generation state and invalidate previously borrowed audio output.
     pub fn mtmd_helper_gen_audio_reset(ctx: *mut MtmdHelperGenAudio);
 
+    /// Configure the speech prompt, sampling controls, and output encoding.
     pub fn mtmd_helper_gen_audio_set_input(
         ctx: *mut MtmdHelperGenAudio,
         input: *const MtmdHelperGenAudioInput,
     ) -> i32;
 
+    /// Process at most `n_batch` prompt tokens; return remaining tokens, zero, or an error.
     pub fn mtmd_helper_gen_audio_step_prompt(ctx: *mut MtmdHelperGenAudio, n_batch: i32) -> i32;
 
+    /// Generate one frame after prompt completion and report end-of-speech.
+    /// The returned hidden state is borrowed until the next generation step or reset.
     pub fn mtmd_helper_gen_audio_step_gen(
         ctx: *mut MtmdHelperGenAudio,
         sampled: i32,
@@ -775,6 +790,7 @@ unsafe extern "C" {
         out_stop: *mut bool,
     ) -> i32;
 
+    /// Borrow encoded audio until the next output query or reset, with sample metadata.
     pub fn mtmd_helper_gen_audio_get_output(
         ctx: *mut MtmdHelperGenAudio,
         out_sample_rate: *mut i32,

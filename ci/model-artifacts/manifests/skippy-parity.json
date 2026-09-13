@@ -2,7 +2,7 @@
   "schema_version": 1,
   "manifest_kind": "test-model-artifacts",
   "suite": "skippy-parity",
-  "registry_sha256": "e320721a799f80117466bda63b3ad4496bfb316e6c34f5f5f0ee29d4b8a32466",
+  "registry_sha256": "1d22c4a145c426eb846f795a1fd1d82fd72dd03b71bbdfe2f54509628fe6c3bc",
   "artifacts": [
     {
       "id": "family-deepseek2",

@@ -47,6 +47,7 @@ pub struct SpeechAudio {
 struct SpeechEmbeddingsGuard(*mut skippy_ffi::Opaque);
 
 impl Drop for SpeechEmbeddingsGuard {
+    /// Restore logits output even when speech setup or generation exits with an error.
     fn drop(&mut self) {
         // SAFETY: the borrowed StageSession outlives this guard and owns the
         // context; speech generation holds exclusive access to the session.
@@ -197,6 +198,7 @@ impl StageModel {
 
         struct AudioGenerator(*mut skippy_ffi::MtmdHelperGenAudio);
         impl Drop for AudioGenerator {
+            /// Release the native generator without taking ownership of its contexts.
             fn drop(&mut self) {
                 if !self.0.is_null() {
                     unsafe { skippy_ffi::mtmd_helper_gen_audio_free(self.0) };
@@ -205,6 +207,7 @@ impl StageModel {
         }
         struct ExternalDecodeGuard(*mut skippy_ffi::Session);
         impl Drop for ExternalDecodeGuard {
+            /// End speech's external-decode scope and free any native cleanup error.
             fn drop(&mut self) {
                 let mut error = ptr::null_mut();
                 unsafe {

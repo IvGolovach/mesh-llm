@@ -297,6 +297,7 @@ fn proto_identity_to_local(
     }
 }
 
+/// Encode optional serving metadata without inventing a class for legacy models.
 fn local_model_metadata_to_proto(
     metadata: &crate::mesh::ServedModelMetadata,
 ) -> crate::proto::node::ServedModelMetadata {
@@ -317,6 +318,7 @@ fn local_model_metadata_to_proto(
     }
 }
 
+/// Decode serving metadata while distinguishing unknown workload values from absent fields.
 fn proto_model_metadata_to_local(
     metadata: &crate::proto::node::ServedModelMetadata,
 ) -> crate::mesh::ServedModelMetadata {
