@@ -1,6 +1,7 @@
 use super::*;
 
 #[test]
+/// Distinguish unrecognized explicit metadata from the old absent-field contract.
 fn unknown_workloads_never_inherit_legacy_admission() {
     let metadata: mesh::ServedModelMetadata = serde_json::from_value(serde_json::json!({
         "workload_class": "future_non_chat_contract"
@@ -37,6 +38,7 @@ fn unknown_workloads_never_inherit_legacy_admission() {
     assert_eq!(absent.workload_class, None);
 }
 
+/// Construct a local artifact identity without implying workload capability.
 fn local_gguf_descriptor(model_name: &str) -> ServedModelDescriptor {
     ServedModelDescriptor {
         identity: mesh::ServedModelIdentity {
@@ -47,6 +49,7 @@ fn local_gguf_descriptor(model_name: &str) -> ServedModelDescriptor {
     }
 }
 
+/// Attach an explicit class to the same model identity for admission comparisons.
 fn descriptor_with_workload(
     model_name: &str,
     workload_class: mesh::ModelWorkloadClass,
@@ -61,6 +64,7 @@ fn descriptor_with_workload(
 }
 
 #[test]
+/// Preserve old generation peers while rejecting unadvertised non-chat endpoints.
 fn legacy_descriptors_are_compatible_only_with_generation_routes() {
     let descriptors = vec![local_gguf_descriptor("legacy")];
 
@@ -82,6 +86,7 @@ fn legacy_descriptors_are_compatible_only_with_generation_routes() {
 }
 
 #[test]
+/// A known but different workload never satisfies an endpoint's requirement.
 fn workload_routes_require_an_exact_advertised_class() {
     let descriptors = vec![
         descriptor_with_workload("embed", mesh::ModelWorkloadClass::Embedding),
@@ -106,6 +111,7 @@ fn workload_routes_require_an_exact_advertised_class() {
 }
 
 #[test]
+/// Reordering equivalent metadata must not change route eligibility.
 fn workload_metadata_is_independent_of_descriptor_order() {
     let legacy = local_gguf_descriptor("shared-model");
     let current = descriptor_with_workload("shared-model", mesh::ModelWorkloadClass::Embedding);
@@ -119,6 +125,7 @@ fn workload_metadata_is_independent_of_descriptor_order() {
 }
 
 #[test]
+/// Encoder-decoder models retain supported direct generation endpoints.
 fn encoder_decoder_models_can_serve_generation_routes() {
     let descriptors = vec![descriptor_with_workload(
         "t5",

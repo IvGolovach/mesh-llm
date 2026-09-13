@@ -154,6 +154,7 @@ pub(super) fn local_openai_backend(
         generation_token_budget: Arc::new(GenerationTokenBudget::new(ctx_size)),
         hook_policy: None,
         generation_receipt: None,
+        generation_lifecycle: None,
         linear_proposal_ingress: None,
         kv: None,
         iteration_scheduler,

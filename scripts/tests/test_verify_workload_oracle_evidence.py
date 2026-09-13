@@ -14,11 +14,13 @@ WRITER = ROOT / "scripts" / "write-workload-oracle-evidence.py"
 
 
 def sha256(path: Path) -> str:
+    """Hash fixture bytes using the same content identity recorded in evidence."""
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 class WorkloadOracleEvidenceTests(unittest.TestCase):
     def setUp(self) -> None:
+        """Create isolated model, producer and comparison evidence for each verifier case."""
         self.temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_dir.cleanup)
         root = Path(self.temp_dir.name)
@@ -45,6 +47,7 @@ class WorkloadOracleEvidenceTests(unittest.TestCase):
         }
 
     def run_verifier(self, model_class: str = "embedding", *extra: str) -> subprocess.CompletedProcess[str]:
+        """Invoke the verifier against the selected class and independent fixture paths."""
         return subprocess.run(
             [
                 "python3", str(VERIFIER), "--evidence", str(self.evidence),
@@ -60,6 +63,7 @@ class WorkloadOracleEvidenceTests(unittest.TestCase):
         )
 
     def run_writer(self, comparison: str, lane: str = "embedding-smoke") -> subprocess.CompletedProcess[str]:
+        """Run the evidence writer with a supplied comparison transcript and lane label."""
         comparison_log = Path(self.temp_dir.name) / "comparison.txt"
         comparison_log.write_text(comparison + "\n", encoding="utf-8")
         return subprocess.run(
@@ -77,16 +81,19 @@ class WorkloadOracleEvidenceTests(unittest.TestCase):
         )
 
     def test_comparator_pass_writes_verifiable_identity_bound_evidence(self) -> None:
+        """A genuine comparator success produces evidence that passes independent verification."""
         written = self.run_writer(self.body["comparison"])
         self.assertEqual(0, written.returncode, written.stderr)
         self.assertEqual(0, self.run_verifier().returncode)
 
     def test_smoke_only_log_never_writes_oracle_evidence(self) -> None:
+        """Protocol smoke output alone cannot be promoted to equivalence evidence."""
         written = self.run_writer("embedding OpenAI HTTP smoke passed")
         self.assertEqual(1, written.returncode)
         self.assertFalse(self.evidence.exists())
 
     def test_writer_rejects_missing_suffix_and_replaces_only_final_suffix(self) -> None:
+        """Normalize only the terminal smoke suffix without changing embedded lane text."""
         for lane in ("embedding", "embedding-smoke-extra", "embedding-oracle"):
             with self.subTest(lane=lane):
                 result = self.run_writer(self.body["comparison"], lane)
@@ -98,6 +105,7 @@ class WorkloadOracleEvidenceTests(unittest.TestCase):
         self.assertEqual("fixture-smoke-embedding-oracle", json.loads(self.evidence.read_text())["oracle_lane"])
 
     def test_projector_classes_require_independently_supplied_projector(self) -> None:
+        """Projector-bearing workloads need an external sidecar identity to verify against."""
         for model_class in ("ocr", "speech_synthesis", "speech_recognition"):
             with self.subTest(model_class=model_class):
                 self.body["class"] = model_class
@@ -107,6 +115,7 @@ class WorkloadOracleEvidenceTests(unittest.TestCase):
                 self.assertIn("requires a projector path", result.stderr)
 
     def test_projector_digest_is_verified_against_local_bytes(self) -> None:
+        """Modified projector bytes must invalidate otherwise matching evidence."""
         projector = Path(self.temp_dir.name) / "projector.gguf"
         projector.write_bytes(b"projector")
         self.body.update({"class": "ocr", "projector_sha256": sha256(projector),
@@ -120,16 +129,19 @@ class WorkloadOracleEvidenceTests(unittest.TestCase):
         self.assertIn("projector_sha256 does not match", result.stderr)
 
     def test_matching_explicit_evidence_is_accepted(self) -> None:
+        """Consistent explicit evidence remains accepted by the fail-closed verifier."""
         self.evidence.write_text(json.dumps(self.body), encoding="utf-8")
         result = self.run_verifier()
         self.assertEqual(0, result.returncode, result.stderr)
 
     def test_missing_evidence_is_rejected(self) -> None:
+        """An absent evidence document cannot certify a completed-looking workload lane."""
         result = self.run_verifier()
         self.assertEqual(1, result.returncode)
         self.assertIn("workload oracle evidence rejected", result.stderr)
 
     def test_tampered_model_identity_is_rejected(self) -> None:
+        """Changing the recorded model identity invalidates reference equivalence."""
         self.body["model_sha256"] = "b" * 64
         self.evidence.write_text(json.dumps(self.body), encoding="utf-8")
         result = self.run_verifier()
@@ -137,6 +149,7 @@ class WorkloadOracleEvidenceTests(unittest.TestCase):
         self.assertIn("model_sha256 does not match", result.stderr)
 
     def test_smoke_only_output_cannot_certify_oracle_lane(self) -> None:
+        """Reject evidence whose purported comparison is only a smoke transcript."""
         self.body["comparison"] = "embedding OpenAI HTTP smoke passed"
         self.evidence.write_text(json.dumps(self.body), encoding="utf-8")
         result = self.run_verifier()
@@ -144,6 +157,7 @@ class WorkloadOracleEvidenceTests(unittest.TestCase):
         self.assertIn("lacks an explicit comparator pass", result.stderr)
 
     def test_writer_rejects_lane_without_smoke_suffix(self) -> None:
+        """Reject malformed lane names before an oracle artifact can be written."""
         comparison_log = Path(self.temp_dir.name) / "comparison.txt"
         comparison_log.write_text(self.body["comparison"] + "\n", encoding="utf-8")
         result = subprocess.run(
@@ -162,6 +176,7 @@ class WorkloadOracleEvidenceTests(unittest.TestCase):
         self.assertIn("must end with '-smoke'", result.stderr)
 
     def test_projector_workload_requires_projector_identity(self) -> None:
+        """A projector class cannot claim complete identity with only the main GGUF."""
         self.body.update({
             "class": "ocr",
             "smoke_lane": "ocr-smoke",

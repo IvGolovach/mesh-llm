@@ -5,6 +5,7 @@ use crate::inference::election::ModelTargets;
 use crate::network::affinity::AffinityRouter;
 
 #[test]
+/// Future unknown classes cannot inherit the compatibility allowance for old chat peers.
 fn explicit_unknown_workload_is_not_a_legacy_committee_member() {
     let peer = classified_peer(1, ModelWorkloadClass::Unknown);
     assert!(!descriptor_supports_committee(
@@ -16,6 +17,7 @@ fn explicit_unknown_workload_is_not_a_legacy_committee_member() {
     ));
 }
 
+/// Create one peer whose served descriptor explicitly declares its workload class.
 fn classified_peer(seed: u32, class: ModelWorkloadClass) -> mesh::PeerInfo {
     let mut peer = fleet_peer(seed, BIG_MODELS[0]);
     peer.served_model_descriptors[0]
@@ -27,6 +29,7 @@ fn classified_peer(seed: u32, class: ModelWorkloadClass) -> mesh::PeerInfo {
 }
 
 #[tokio::test]
+/// Filter both committee roles before non-chat models can participate in generation.
 async fn mixed_workload_fleet_only_admits_chat_models_to_worker_and_actor_roles() {
     let node = mesh::Node::new_for_tests(mesh::NodeRole::Client)
         .await
@@ -64,6 +67,7 @@ async fn mixed_workload_fleet_only_admits_chat_models_to_worker_and_actor_roles(
 }
 
 #[tokio::test]
+/// Workload admission precedes capacity reservations for standbys and replicas.
 async fn target_admission_filters_standbys_and_same_model_clones_before_reservations() {
     let node = mesh::Node::new_for_tests(mesh::NodeRole::Worker)
         .await
@@ -114,6 +118,7 @@ async fn target_admission_filters_standbys_and_same_model_clones_before_reservat
 }
 
 #[test]
+/// Direct generation compatibility does not grant encoder-decoder committee membership.
 fn legacy_chat_is_preserved_but_encoder_decoder_never_inherits_a_committee_role() {
     assert!(model_supports_committee("legacy", &[]));
     let mut descriptor = ServedModelDescriptor::default();
@@ -130,6 +135,7 @@ fn legacy_chat_is_preserved_but_encoder_decoder_never_inherits_a_committee_role(
 }
 
 #[test]
+/// Aliases retain the workload restrictions of the descriptor they identify.
 fn public_alias_does_not_bypass_non_chat_admission() {
     let mut peer = classified_peer(9, ModelWorkloadClass::Embedding);
     let descriptor = &mut peer.served_model_descriptors[0];

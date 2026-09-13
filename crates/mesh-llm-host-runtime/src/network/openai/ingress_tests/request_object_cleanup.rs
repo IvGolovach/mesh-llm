@@ -43,6 +43,7 @@ impl PluginRpcBridge for CompletionRecorder {
     }
 }
 
+/// Track request-owned blobs through ingress rejection and assert cleanup ownership.
 async fn rejected_request_releases_objects(model: &str, media: bool) {
     let node = mesh::Node::new_for_tests(mesh::NodeRole::Worker)
         .await
@@ -123,6 +124,7 @@ async fn rejected_request_releases_objects(model: &str, media: bool) {
 }
 
 #[tokio::test]
+/// Each rejection path must release every uploaded object exactly once.
 async fn workload_and_media_rejections_complete_each_request_object_once() {
     for (model, media) in [("text-only", false), ("auto", false), ("auto", true)] {
         tokio::time::timeout(

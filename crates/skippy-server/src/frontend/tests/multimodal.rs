@@ -493,6 +493,7 @@ async fn real_multimodal_split_smoke_when_fixture_is_set() -> Result<()> {
         generation_token_budget: Arc::new(GenerationTokenBudget::new(ctx_size)),
         hook_policy: None,
         generation_receipt: None,
+        generation_lifecycle: None,
         linear_proposal_ingress: None,
         kv: None,
         iteration_scheduler,

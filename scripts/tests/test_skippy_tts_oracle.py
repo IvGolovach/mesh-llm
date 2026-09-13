@@ -23,6 +23,7 @@ SPEC.loader.exec_module(oracle)
 
 
 def write_wav(path: Path, samples: list[int], *, rate: int = 8000) -> None:
+    """Create controlled PCM fixtures with explicit waveform and format properties."""
     pcm = array("h", samples)
     if sys.byteorder != "little":
         pcm.byteswap()
@@ -35,6 +36,7 @@ def write_wav(path: Path, samples: list[int], *, rate: int = 8000) -> None:
 
 class TtsOracleTests(unittest.TestCase):
     def test_prebuilt_candidate_requires_verified_producer_and_never_runs_cargo(self) -> None:
+        """A prebuilt lane must verify its producer instead of silently rebuilding a candidate."""
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             manifest = root / "producer.json"
@@ -59,15 +61,18 @@ class TtsOracleTests(unittest.TestCase):
                     oracle.candidate_test_command(env)
 
     def test_incomplete_producer_paths_do_not_fall_back_to_cargo(self) -> None:
+        """Partial producer configuration is rejected rather than replaced by ambient builds."""
         with self.assertRaisesRegex(RuntimeError, "requires workload candidate and native build paths"):
             oracle.candidate_test_command({"SKIPPY_WORKLOAD_PRODUCER_MANIFEST": "producer.json"})
 
     def test_standalone_candidate_retains_explicit_cargo_test(self) -> None:
+        """Standalone mode retains its explicit native candidate test invocation."""
         command = oracle.candidate_test_command({})
         self.assertEqual(["cargo", "test"], command[:2])
         self.assertIn(oracle.TEST_NAME, command)
 
     def test_oracle_invocation_matches_candidate_no_repack_context(self) -> None:
+        """Align reference context size and repacking policy with the candidate."""
         with tempfile.TemporaryDirectory() as temp_dir:
             test_root = Path(temp_dir)
             model = test_root / "model.gguf"
@@ -103,6 +108,7 @@ class TtsOracleTests(unittest.TestCase):
             self.assertEqual("0", commands[1][commands[1].index("-ngl") + 1])
 
     def test_identical_pcm_passes_with_zero_error(self) -> None:
+        """Identical waveforms establish the comparator's exact-agreement baseline."""
         with tempfile.TemporaryDirectory() as temp_dir:
             candidate = Path(temp_dir) / "candidate.wav"
             reference = Path(temp_dir) / "reference.wav"
@@ -115,6 +121,7 @@ class TtsOracleTests(unittest.TestCase):
         self.assertEqual(1600, metrics["sample_count"])
 
     def test_small_pcm_rounding_difference_is_tolerated(self) -> None:
+        """Allow bounded quantization noise without accepting arbitrary waveform changes."""
         with tempfile.TemporaryDirectory() as temp_dir:
             candidate = Path(temp_dir) / "candidate.wav"
             reference = Path(temp_dir) / "reference.wav"
@@ -124,6 +131,7 @@ class TtsOracleTests(unittest.TestCase):
         self.assertLess(metrics["relative_rms_error"], oracle.MAX_RELATIVE_RMS_ERROR)
 
     def test_wrong_gain_and_phase_are_rejected(self) -> None:
+        """Amplitude or phase changes must fail even when duration and format match."""
         with tempfile.TemporaryDirectory() as temp_dir:
             candidate = Path(temp_dir) / "candidate.wav"
             reference = Path(temp_dir) / "reference.wav"
@@ -135,6 +143,7 @@ class TtsOracleTests(unittest.TestCase):
                         oracle.compare_wavs(candidate, reference)
 
     def test_silent_and_mismatched_wav_are_rejected(self) -> None:
+        """Reject silence and incompatible waveform metadata before comparing samples."""
         with tempfile.TemporaryDirectory() as temp_dir:
             candidate = Path(temp_dir) / "candidate.wav"
             reference = Path(temp_dir) / "reference.wav"
@@ -150,6 +159,7 @@ class TtsOracleTests(unittest.TestCase):
                 oracle.compare_wavs(candidate, reference)
 
     def test_oracle_requires_current_pinned_cpu_stamp(self) -> None:
+        """Stale or mismatched reference builds cannot certify the current source."""
         with tempfile.TemporaryDirectory() as temp_dir:
             test_root = Path(temp_dir)
             binary = test_root / "build" / "bin" / "llama-tts"
@@ -185,6 +195,7 @@ class TtsOracleTests(unittest.TestCase):
                     oracle.require_pinned_cpu_oracle(binary)
 
     def test_candidate_requires_same_pinned_cpu_static_build(self) -> None:
+        """Candidate and reference must agree on the pinned CPU native build identity."""
         with tempfile.TemporaryDirectory() as temp_dir:
             build_dir = Path(temp_dir)
             stamp = build_dir / ".mesh-llm-build-stamp"

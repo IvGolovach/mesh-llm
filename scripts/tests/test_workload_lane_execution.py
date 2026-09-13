@@ -23,6 +23,7 @@ def shell_function(script: str, name: str) -> str:
 
 class WorkloadLaneExecutionTests(unittest.TestCase):
     def run_lane(self, dry_run: bool) -> tuple[subprocess.CompletedProcess[str], list[dict]]:
+        """Run an isolated battery function with deterministic producer and log fixtures."""
         with tempfile.TemporaryDirectory() as directory:
             env = {key: value for key, value in os.environ.items()
                    if not key.startswith("SKIPPY_WORKLOAD_ORACLE_")}
@@ -52,6 +53,7 @@ class WorkloadLaneExecutionTests(unittest.TestCase):
             return result, rows
 
     def test_dry_run_prints_both_certified_rows_without_oracles(self) -> None:
+        """Planning must remain usable before oracle executables are provisioned."""
         result, rows = self.run_lane(True)
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn("--startup-timeout-secs 600", result.stdout)
@@ -61,6 +63,7 @@ class WorkloadLaneExecutionTests(unittest.TestCase):
         self.assertEqual([], rows)
 
     def test_missing_oracle_records_both_failures_and_continues(self) -> None:
+        """A missing prerequisite must retain failures for every selected family."""
         result, rows = self.run_lane(False)
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn("counts=2,2", result.stdout)
@@ -71,6 +74,7 @@ class WorkloadLaneExecutionTests(unittest.TestCase):
             self.assertTrue(all(lane["status"] == "fail" for lane in row["outcomes"]))
 
     def test_readiness_uses_deadline_for_each_server_and_rejects_dead_process(self) -> None:
+        """Give each server its planned budget while detecting an exited child promptly."""
         function = shell_function("skippy-workload-certify.sh", "wait_for_workload_server")
         for label in ("OpenAI server", "monolithic oracle server"):
             with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:

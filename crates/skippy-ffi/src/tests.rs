@@ -26,6 +26,43 @@ const fn version(major: u32, minor: u32, patch: u32) -> AbiVersion {
 }
 
 #[test]
+/// Runtime-event families must never masquerade as full-model workload support.
+fn workload_feature_is_distinct_from_runtime_event_features() {
+    let events = crate::FEATURE_RUNTIME_EVENT_REPORTER
+        | crate::FEATURE_MODEL_LOAD_EVENTS_V2
+        | crate::FEATURE_KV_EVENTS
+        | crate::FEATURE_DEVICE_EVENTS
+        | crate::FEATURE_DIAGNOSTIC_EVENTS
+        | crate::FEATURE_UNLOAD_EVENTS;
+    assert_eq!(crate::FEATURE_NON_CHAT_WORKLOADS, 1_u64 << 37);
+    assert_eq!(events & crate::FEATURE_NON_CHAT_WORKLOADS, 0);
+}
+
+/// The linked native library must advertise the same independent feature bits.
+#[test]
+#[cfg(not(feature = "dynamic-runtime"))]
+fn native_workload_feature_preserves_runtime_event_features() {
+    // SAFETY: This process-global ABI query takes no pointers or mutable state.
+    let features = unsafe { crate::skippy_abi_features() };
+    for expected in [
+        crate::FEATURE_NON_CHAT_WORKLOADS,
+        crate::FEATURE_RUNTIME_EVENT_REPORTER,
+        crate::FEATURE_MODEL_LOAD_EVENTS_V2,
+        crate::FEATURE_KV_EVENTS,
+        crate::FEATURE_DEVICE_EVENTS,
+        crate::FEATURE_DIAGNOSTIC_EVENTS,
+        crate::FEATURE_UNLOAD_EVENTS,
+    ] {
+        assert_ne!(
+            features & expected,
+            0,
+            "native feature {expected:#x} is absent"
+        );
+    }
+}
+
+#[test]
+/// Pin the C descriptor's field offsets, including booleans and reserved padding.
 fn workload_descriptor_matches_native_layout_and_discriminants() {
     assert_eq!(WORKLOAD_INFO_V1_ABI_VERSION, 1);
     assert_eq!(size_of::<WorkloadInfoV1>(), 28);

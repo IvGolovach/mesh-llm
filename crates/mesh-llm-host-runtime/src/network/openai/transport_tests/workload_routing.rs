@@ -8,6 +8,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 const MODEL: &str = "shared-workload-model";
 
 #[tokio::test]
+/// An incompatible local copy must not shadow a valid same-model remote target.
 async fn explicit_ingress_falls_back_to_capable_remote_when_local_workload_is_incompatible() {
     let node = mesh::Node::new_for_tests(mesh::NodeRole::Worker)
         .await
@@ -27,6 +28,7 @@ async fn explicit_ingress_falls_back_to_capable_remote_when_local_workload_is_in
 }
 
 #[tokio::test]
+/// A user tag on stateless work must not create generation-session affinity.
 async fn stateless_user_metadata_does_not_disable_replica_reservation_spreading() {
     let node = mesh::Node::new_for_tests(mesh::NodeRole::Client)
         .await
@@ -55,6 +57,7 @@ async fn stateless_user_metadata_does_not_disable_replica_reservation_spreading(
     }
 }
 
+/// Build a descriptor with independently selectable workload and audio capability.
 fn descriptor(class: Option<ModelWorkloadClass>, audio: bool) -> mesh::ServedModelDescriptor {
     mesh::ServedModelDescriptor {
         identity: mesh::ServedModelIdentity {
@@ -79,6 +82,7 @@ fn descriptor(class: Option<ModelWorkloadClass>, audio: bool) -> mesh::ServedMod
     }
 }
 
+/// Create an isolated peer carrying the exact descriptors needed by a routing case.
 async fn peer(
     node: &mesh::Node,
     class: Option<ModelWorkloadClass>,
@@ -91,6 +95,7 @@ async fn peer(
     id
 }
 
+/// Construct a parsed endpoint request without invoking a native model.
 fn request(path: &str, model: &str) -> BufferedHttpRequest {
     let body = serde_json::json!({
         "model": model,
@@ -119,6 +124,7 @@ fn request(path: &str, model: &str) -> BufferedHttpRequest {
 }
 
 #[tokio::test]
+/// Admission must use the selected target's own descriptor rather than fleet-wide metadata.
 async fn non_chat_targets_require_their_own_workload_advertisement() {
     let node = mesh::Node::new_for_tests(mesh::NodeRole::Client)
         .await
@@ -157,6 +163,7 @@ async fn non_chat_targets_require_their_own_workload_advertisement() {
 }
 
 #[tokio::test]
+/// Never combine incompatible local and remote declarations into invented support.
 async fn local_target_cannot_inherit_a_remote_workload_or_vice_versa() {
     let node = mesh::Node::new_for_tests(mesh::NodeRole::Worker)
         .await
@@ -184,6 +191,7 @@ async fn local_target_cannot_inherit_a_remote_workload_or_vice_versa() {
 }
 
 #[tokio::test]
+/// Workload filtering must preserve existing generation and control-plane behavior.
 async fn legacy_generation_and_control_routes_remain_eligible() {
     let node = mesh::Node::new_for_tests(mesh::NodeRole::Client)
         .await
@@ -210,6 +218,7 @@ async fn legacy_generation_and_control_routes_remain_eligible() {
 }
 
 #[tokio::test]
+/// Filter unsupported passive-client targets before assigning routing state.
 async fn passive_plan_excludes_legacy_hosts_before_affinity_and_reservation() {
     let node = mesh::Node::new_for_tests(mesh::NodeRole::Client)
         .await
@@ -236,6 +245,7 @@ async fn passive_plan_excludes_legacy_hosts_before_affinity_and_reservation() {
 }
 
 #[tokio::test]
+/// An explicit future class is not an absent legacy descriptor.
 async fn passive_plan_rejects_unknown_workloads_instead_of_forwarding_them() {
     let node = mesh::Node::new_for_tests(mesh::NodeRole::Client)
         .await
@@ -252,6 +262,7 @@ async fn passive_plan_rejects_unknown_workloads_instead_of_forwarding_them() {
 }
 
 #[tokio::test]
+/// Passive audio routing selects a capable model and preserves the binary upload.
 async fn passive_auto_audio_uses_the_capable_descriptor_and_rewrites_multipart() {
     let node = mesh::Node::new_for_tests(mesh::NodeRole::Client)
         .await
@@ -279,6 +290,7 @@ async fn passive_auto_audio_uses_the_capable_descriptor_and_rewrites_multipart()
 }
 
 #[tokio::test]
+/// A cached automatic choice for one endpoint cannot authorize another workload.
 async fn passive_auto_model_cache_cannot_cross_workload_boundaries() {
     let node = mesh::Node::new_for_tests(mesh::NodeRole::Client)
         .await
@@ -312,6 +324,7 @@ async fn passive_auto_model_cache_cannot_cross_workload_boundaries() {
 }
 
 #[tokio::test]
+/// Workload and audio support must coexist on one target descriptor.
 async fn audio_upload_capabilities_must_belong_to_one_descriptor_on_the_target() {
     let node = mesh::Node::new_for_tests(mesh::NodeRole::Client)
         .await
@@ -332,6 +345,7 @@ async fn audio_upload_capabilities_must_belong_to_one_descriptor_on_the_target()
 }
 
 #[tokio::test]
+/// Fail closed when neither the local target nor any replica can serve the endpoint.
 async fn host_dispatch_rejects_local_legacy_target_without_capable_replicas() {
     let node = mesh::Node::new_for_tests(mesh::NodeRole::Worker)
         .await

@@ -10,6 +10,7 @@ PRODUCER = ROOT / "scripts/skippy-workload-oracles-build.sh"
 
 class WorkloadOracleProducerTests(unittest.TestCase):
     def test_environment_is_deterministic_and_does_not_override_metal_outputs(self) -> None:
+        """The CPU oracle closure must not overwrite the primary Metal family outputs."""
         result = subprocess.run(
             ["bash", str(PRODUCER), "--print-env", "/tmp/canary with spaces"],
             text=True, capture_output=True, check=True,
@@ -22,11 +23,13 @@ class WorkloadOracleProducerTests(unittest.TestCase):
         self.assertEqual("/tmp/canary with spaces/cargo/debug", values["SKIPPY_WORKLOAD_CANDIDATE_BIN_DIR"])
 
     def test_rejects_relative_or_environment_injection_paths(self) -> None:
+        """Only absolute, safely exportable producer paths can enter the generated environment."""
         for path in ["relative", "/tmp/line\nGH_TOKEN=bad", "/tmp/line\rnext"]:
             result = subprocess.run(["bash", str(PRODUCER), "--print-env", path], capture_output=True)
             self.assertNotEqual(0, result.returncode)
 
     def test_both_canary_paths_build_then_export_the_same_cpu_producers(self) -> None:
+        """Normal and independent verification must consume the same explicit producer graph."""
         workflow = (ROOT / ".github/workflows/llama-upstream-canary.yml").read_text()
         repair = (ROOT / "scripts/llama-canary-agent-repair.sh").read_text()
         for text in [workflow, repair]:
@@ -41,6 +44,7 @@ class WorkloadOracleProducerTests(unittest.TestCase):
         self.assertIn('TEST_COMMAND=("$(jq -er', consumer)
 
     def test_all_six_workload_rows_guard_pin_advances_and_forced_certification(self) -> None:
+        """Both llama-bump and manual-full must retain every certified workload class."""
         for cadence in ["llama-bump", "manual-full"]:
             result = subprocess.run(
                 [str(ROOT / "scripts/plan-family-battery.py"), "--cadence", cadence],

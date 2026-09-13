@@ -1,6 +1,7 @@
 use super::*;
 
 #[tokio::test]
+/// Every recognized audio field has one authoritative value per upload.
 async fn audio_upload_rejects_each_duplicate_field() {
     let boundary = "duplicate-audio-field";
     for path in ["/v1/audio/transcriptions", "/v1/audio/translations"] {
@@ -33,6 +34,7 @@ async fn audio_upload_rejects_each_duplicate_field() {
 }
 
 #[tokio::test]
+/// Transcription and translation share the same finite temperature contract.
 async fn audio_upload_enforces_temperature_range_at_both_endpoints() {
     let boundary = "audio-temperature";
     for path in ["/v1/audio/transcriptions", "/v1/audio/translations"] {
@@ -63,6 +65,7 @@ async fn audio_upload_enforces_temperature_range_at_both_endpoints() {
 }
 
 #[tokio::test]
+/// The HTTP envelope retains backend indexes, vector order and token accounting.
 async fn embeddings_route_preserves_batch_order_and_usage() {
     let response = post_json(
         "/v1/embeddings",
@@ -87,6 +90,7 @@ async fn embeddings_route_preserves_batch_order_and_usage() {
 }
 
 #[tokio::test]
+/// Unsupported encodings return the standard API error instead of reaching inference.
 async fn embeddings_route_returns_openai_error_for_invalid_format() {
     let response = post_json(
         "/v1/embeddings",
@@ -105,6 +109,7 @@ async fn embeddings_route_returns_openai_error_for_invalid_format() {
 }
 
 #[tokio::test]
+/// Sorting and top-n selection preserve each score's original document identity.
 async fn rerank_route_sorts_limits_and_optionally_returns_documents() {
     let response = post_json(
         "/v1/rerank",
@@ -129,6 +134,7 @@ async fn rerank_route_sorts_limits_and_optionally_returns_documents() {
 }
 
 #[tokio::test]
+/// Speech responses bypass JSON serialization and preserve the backend media type.
 async fn audio_speech_route_returns_backend_bytes_and_content_type() {
     let response = post_json(
         "/v1/audio/speech",
@@ -147,6 +153,7 @@ async fn audio_speech_route_returns_backend_bytes_and_content_type() {
     assert_eq!(bytes.as_ref(), b"RIFF");
 }
 
+/// Build a deterministic upload body with a model, format and audio fixture.
 fn audio_multipart(boundary: &str, response_format: &str) -> Vec<u8> {
     format!(
         "--{boundary}\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\naudio-model\r\n\
@@ -157,6 +164,7 @@ fn audio_multipart(boundary: &str, response_format: &str) -> Vec<u8> {
     .into_bytes()
 }
 
+/// Exercise the real router with a multipart body and matching content type.
 async fn post_audio_multipart(path: &str, boundary: &str, body: Vec<u8>) -> Response {
     router_for(Arc::new(FakeBackend))
         .oneshot(
@@ -175,6 +183,7 @@ async fn post_audio_multipart(path: &str, boundary: &str, body: Vec<u8>) -> Resp
 }
 
 #[tokio::test]
+/// The requested transcription representation controls both bytes and content type.
 async fn audio_transcription_supports_json_and_text_responses() {
     let boundary = "mesh-audio-boundary";
     let json_response = post_audio_multipart(
@@ -205,6 +214,7 @@ async fn audio_transcription_supports_json_and_text_responses() {
 }
 
 #[tokio::test]
+/// Translation must invoke its own backend operation rather than transcription.
 async fn audio_translation_uses_translation_backend() {
     let boundary = "mesh-audio-boundary";
     let response = post_audio_multipart(
@@ -220,6 +230,7 @@ async fn audio_translation_uses_translation_backend() {
 }
 
 #[tokio::test]
+/// Binary upload limits remain independent of JSON endpoint limits.
 async fn audio_upload_uses_its_dedicated_body_limit() {
     let boundary = "mesh-large-audio-boundary";
     let file_bytes = vec![0x2a; OpenAiFrontendConfig::default().max_request_body_bytes + 1];
@@ -243,6 +254,7 @@ async fn audio_upload_uses_its_dedicated_body_limit() {
 }
 
 #[tokio::test]
+/// Malformed uploads must produce typed API errors, not framework-specific bodies.
 async fn malformed_audio_multipart_uses_openai_error_envelope() {
     let response = router_for(Arc::new(FakeBackend))
         .oneshot(
@@ -262,6 +274,7 @@ async fn malformed_audio_multipart_uses_openai_error_envelope() {
 }
 
 #[tokio::test]
+/// Ambiguous model selection is rejected before the backend receives an upload.
 async fn duplicate_audio_model_field_is_rejected() {
     let boundary = "mesh-audio-boundary";
     let body = format!(

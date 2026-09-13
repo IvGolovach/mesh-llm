@@ -654,6 +654,7 @@ async fn test_read_http_request_allows_large_object_upload_body() {
 }
 
 #[tokio::test]
+/// Audio uploads use their own body ceiling instead of the ordinary JSON limit.
 async fn test_read_http_request_allows_large_audio_upload_body() {
     let file_bytes = vec![b'x'; MAX_BODY_BYTES + 1];
     let mut body =
@@ -676,6 +677,7 @@ async fn test_read_http_request_allows_large_audio_upload_body() {
 }
 
 #[test]
+/// Only the upload endpoints receive the larger binary-body budget.
 fn audio_upload_limits_are_path_scoped() {
     let audio = body_limits_for_path("/v1/audio/translations?trace=1", HTTP_READ_LIMITS);
     assert_eq!(audio.max_body_bytes, MAX_AUDIO_UPLOAD_BODY_BYTES);
@@ -827,6 +829,7 @@ fn test_rewrite_model_field_updates_body_and_content_length() {
 }
 
 #[tokio::test]
+/// Model routing must never decode or rewrite the uploaded audio bytes.
 async fn multipart_model_is_parsed_and_rewritten_without_touching_file_bytes() {
     const BOUNDARY: &str = "mesh-audio-boundary";
     // A boundary prefix inside binary content is not a multipart delimiter.
@@ -890,6 +893,7 @@ async fn multipart_model_is_parsed_and_rewritten_without_touching_file_bytes() {
 }
 
 #[test]
+/// Reject ambiguous framing and unbounded model identifiers before route selection.
 fn multipart_parser_rejects_invalid_boundaries_and_oversized_model_values() {
     assert!(multipart_boundary("multipart/form-data; boundary=bad space").is_none());
     assert!(multipart_boundary("application/json; boundary=mesh").is_none());
@@ -910,6 +914,7 @@ fn multipart_parser_rejects_invalid_boundaries_and_oversized_model_values() {
 }
 
 #[tokio::test]
+/// Two model fields cannot disagree about the destination of one upload.
 async fn duplicate_multipart_model_is_rejected_before_audio_routing() {
     let boundary = "mesh-audio-boundary";
     let body = format!(
@@ -947,6 +952,7 @@ async fn duplicate_multipart_model_is_rejected_before_audio_routing() {
 }
 
 #[test]
+/// A boundary-like sequence inside payload data is not a valid multipart start.
 fn multipart_model_scanner_rejects_non_initial_boundary() {
     let body = b"binary--mesh\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nauto\r\n--mesh--\r\n";
     let error = multipart_model_field("multipart/form-data; boundary=mesh", body).unwrap_err();
@@ -958,6 +964,7 @@ fn multipart_model_scanner_rejects_non_initial_boundary() {
 }
 
 #[test]
+/// Quoted filenames cannot impersonate the disposition's model-field parameter.
 fn multipart_disposition_ignores_name_like_text_inside_quoted_filename() {
     assert!(
         !multipart_part_is_model(

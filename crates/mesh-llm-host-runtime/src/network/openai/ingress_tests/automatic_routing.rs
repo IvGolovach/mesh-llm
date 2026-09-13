@@ -16,6 +16,7 @@ use super::super::ingress::{
 };
 
 #[tokio::test]
+/// A same-name local chat model must not hide a compatible remote embedding replica.
 async fn auto_readiness_uses_remote_embedding_despite_local_causal_copy() {
     let model = "shared-workload-model";
     let (node, targets) = node_serving(&[model]).await;
@@ -72,6 +73,7 @@ fn descriptor(model: &str, vision: bool, audio: bool) -> mesh::ServedModelDescri
     }
 }
 
+/// Construct an explicit workload advertisement without inferring support from a name.
 fn workload_descriptor(
     model: &str,
     workload_class: mesh::ModelWorkloadClass,
@@ -85,6 +87,7 @@ fn workload_descriptor(
     }
 }
 
+/// Keep audio capability attached to the descriptor that owns the audio workload.
 fn audio_workload_descriptor(
     model: &str,
     workload_class: mesh::ModelWorkloadClass,
@@ -200,6 +203,7 @@ async fn resolve(
     .await
 }
 
+/// Drive automatic ingress selection for a concrete endpoint and optional model.
 async fn resolve_path(
     path: &str,
     model: Option<&str>,
@@ -225,6 +229,7 @@ async fn resolve_path(
 }
 
 #[test]
+/// Pin endpoint admission so new routes cannot silently inherit chat-only routing.
 fn endpoint_paths_map_to_their_required_workload_classes() {
     assert_eq!(
         super::super::ingress::request_workload_class("/v1/embeddings?trace=1"),
@@ -249,6 +254,7 @@ fn endpoint_paths_map_to_their_required_workload_classes() {
 }
 
 #[tokio::test]
+/// Require a matching audio workload, not merely a model with a familiar identifier.
 async fn audio_upload_routes_only_to_an_advertised_audio_workload() {
     let (node, targets) =
         node_serving(&["legacy-audio", "chat-only", "tts", "audio-to-text"]).await;
@@ -286,6 +292,7 @@ async fn audio_upload_routes_only_to_an_advertised_audio_workload() {
 }
 
 #[tokio::test]
+/// Legacy audio metadata cannot certify the newly introduced upload endpoints.
 async fn audio_upload_rejects_legacy_audio_for_explicit_and_auto_routing() {
     let (node, targets) = node_serving(&["legacy-audio"]).await;
     let descriptors = vec![descriptor("legacy-audio", false, true)];
@@ -313,6 +320,7 @@ async fn audio_upload_rejects_legacy_audio_for_explicit_and_auto_routing() {
 }
 
 #[tokio::test]
+/// A workload label alone must not manufacture native audio decoding support.
 async fn audio_upload_requires_runtime_verified_audio_capability() {
     let (node, targets) = node_serving(&["unverified-audio", "text-only"]).await;
     let mut unverified = audio_workload_descriptor(
@@ -342,6 +350,7 @@ async fn audio_upload_requires_runtime_verified_audio_capability() {
 }
 
 #[tokio::test]
+/// Preserve existing chat-media routing while tightening the new upload routes.
 async fn legacy_chat_audio_remains_routable() {
     let (node, targets) = node_serving(&["legacy-audio"]).await;
     let descriptors = vec![descriptor("legacy-audio", false, true)];
@@ -377,6 +386,7 @@ async fn legacy_chat_audio_remains_routable() {
 }
 
 #[tokio::test]
+/// Automatic embedding selection excludes otherwise healthy chat candidates.
 async fn embedding_auto_route_selects_only_an_embedding_model() {
     let (node, targets) = node_serving(&["chat-model", "embed-model"]).await;
     let descriptors = vec![
@@ -410,6 +420,7 @@ async fn embedding_auto_route_selects_only_an_embedding_model() {
 }
 
 #[tokio::test]
+/// An absent workload field preserves legacy chat, not unverified non-chat support.
 async fn non_chat_auto_route_fails_closed_for_legacy_descriptors() {
     let (node, targets) = node_serving(&["legacy-chat-model"]).await;
     let descriptors = vec![descriptor("legacy-chat-model", false, false)];
@@ -435,6 +446,7 @@ async fn non_chat_auto_route_fails_closed_for_legacy_descriptors() {
 }
 
 #[tokio::test]
+/// Explicit model selection does not bypass endpoint-specific workload admission.
 async fn explicitly_named_model_must_advertise_the_endpoint_workload() {
     let (node, targets) = node_serving(&["chat-model"]).await;
     let descriptors = vec![workload_descriptor(

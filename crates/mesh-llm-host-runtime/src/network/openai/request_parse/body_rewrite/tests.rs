@@ -1,6 +1,7 @@
 use super::*;
 use tokio::io::AsyncWriteExt;
 
+/// Parse a synthetic connection through the production buffered HTTP reader.
 async fn read_request(raw: Vec<u8>) -> BufferedHttpRequest {
     let (mut writer, mut reader) = tokio::io::duplex(4096);
     let write = tokio::spawn(async move {
@@ -13,6 +14,7 @@ async fn read_request(raw: Vec<u8>) -> BufferedHttpRequest {
     request
 }
 
+/// Construct a model field beside opaque upload bytes for rewrite regression tests.
 fn multipart(model: &str) -> Vec<u8> {
     [
         b"--audio\r\nContent-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\nContent-Type: audio/wav\r\n\r\nRIFF\0{\xff}\x80\r\n--audio\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n".as_slice(),
@@ -20,6 +22,7 @@ fn multipart(model: &str) -> Vec<u8> {
     ].concat()
 }
 
+/// Encode equivalent requests with fixed-length or chunked transport bodies.
 fn raw_request(path: &str, content_type: &str, body: &[u8], chunked: bool) -> Vec<u8> {
     let framing = if chunked {
         "Transfer-Encoding: chunked\r\nTrailer: X-Checksum".into()
@@ -41,6 +44,7 @@ fn raw_request(path: &str, content_type: &str, body: &[u8], chunked: bool) -> Ve
 }
 
 #[tokio::test]
+/// Rewrite only the multipart model field and replace decoded transport framing.
 async fn automatic_audio_rewrite_preserves_binary_bytes_and_replaces_chunk_framing() {
     for path in ["/v1/audio/transcriptions", "/v1/audio/translations?trace=1"] {
         for chunked in [false, true] {
@@ -79,6 +83,7 @@ async fn automatic_audio_rewrite_preserves_binary_bytes_and_replaces_chunk_frami
 }
 
 #[test]
+/// JSON hooks must leave non-JSON payloads untouched and avoid duplicate flags.
 fn hook_injection_rejects_non_json_and_sets_one_valid_flag() {
     for (content_type, body) in [
         ("application/octet-stream", b"{\"binary\":true}".as_slice()),

@@ -9,6 +9,7 @@ use skippy_runtime::{SpeechOutputFormat, SpeechSynthesisConfig};
 
 const OUTPUT_ENV: &str = "SKIPPY_TTS_ORACLE_CANDIDATE_WAV";
 
+/// Resolve a required local TTS fixture without downloading replacement inputs.
 fn fixture_path(name: &str) -> Result<PathBuf> {
     let path = PathBuf::from(env::var_os(name).context(format!("{name} is required"))?);
     if !path.is_file() {
@@ -17,6 +18,7 @@ fn fixture_path(name: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
+/// Parse deterministic TTS limits from the producer's explicit environment.
 fn fixture_number<T>(name: &str) -> Result<T>
 where
     T: std::str::FromStr,
@@ -28,6 +30,7 @@ where
         .map_err(|error| anyhow!("parse {name}: {error}"))
 }
 
+/// Configure the CPU candidate to match the reference model and projector setup.
 fn local_tts_config(
     model_id: &str,
     model_path: &Path,
@@ -66,6 +69,7 @@ fn local_tts_config(
 }
 
 #[test]
+/// Write the complete deterministic candidate waveform for independent comparison.
 fn deterministic_tts_candidate_when_fixture_is_set() -> Result<()> {
     let Some(output_path) = env::var_os(OUTPUT_ENV) else {
         return Ok(());

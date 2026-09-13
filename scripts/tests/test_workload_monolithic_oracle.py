@@ -19,6 +19,7 @@ SPEC.loader.exec_module(oracle)
 
 class WorkloadMonolithicOracleTests(unittest.TestCase):
     def test_embedding_requires_dimension_and_numeric_parity(self) -> None:
+        """Require matching dimensions and bounded component error, not merely valid vectors."""
         reference = {
             "data": [
                 {"index": index, "embedding": [1.0, 0.0]}
@@ -39,6 +40,7 @@ class WorkloadMonolithicOracleTests(unittest.TestCase):
             oracle.compare_embeddings(changed, reference)
 
     def test_embedding_oracle_checks_each_single_input_after_batch(self) -> None:
+        """Batch parity cannot hide divergence when the same inputs execute individually."""
         batch = {"data": [
             {"index": index, "embedding": [1.0, 0.0]}
             for index in range(len(oracle.EMBEDDING_INPUTS))
@@ -53,6 +55,7 @@ class WorkloadMonolithicOracleTests(unittest.TestCase):
         self.assertEqual(oracle.EMBEDDING_INPUTS[0], request.call_args_list[2].args[2]["input"])
 
     def test_rerank_requires_same_scores_and_order(self) -> None:
+        """A changed ranking or relevance score must fail reference equivalence."""
         reference = {"results": [
             {"index": 0, "relevance_score": 2.0},
             {"index": 1, "relevance_score": -1.0},
@@ -66,6 +69,7 @@ class WorkloadMonolithicOracleTests(unittest.TestCase):
             oracle.compare_rerank(changed, reference)
 
     def test_encoder_decoder_compares_normalized_text(self) -> None:
+        """Ignore whitespace decoration but reject a semantically different completion."""
         reference = {"choices": [{"text": "Das Haus ist wunderbar."}]}
         equivalent = {"choices": [{"text": " Das   Haus ist wunderbar.\n"}]}
         self.assertIn("identical normalized text", oracle.compare_encoder_decoder(equivalent, reference))
@@ -74,6 +78,7 @@ class WorkloadMonolithicOracleTests(unittest.TestCase):
             oracle.compare_encoder_decoder(changed, reference)
 
     def test_direct_monolithic_completion_strips_only_terminal_runner_marker(self) -> None:
+        """Remove the CLI terminator without admitting displayed prompts as generated text."""
         result = subprocess.CompletedProcess(
             args=["llama-completion"], returncode=0,
             stdout=" Das Haus ist schön. [end of text]\n", stderr="model loaded",
@@ -85,6 +90,7 @@ class WorkloadMonolithicOracleTests(unittest.TestCase):
         self.assertIn("--temp", run.call_args.args[0])
 
     def test_direct_monolithic_completion_rejects_empty_or_failed_output(self) -> None:
+        """A successful process with no generated text is not passing oracle evidence."""
         empty = subprocess.CompletedProcess(args=[], returncode=0,
                                             stdout=" [end of text]\n", stderr="")
         with patch.object(oracle.subprocess, "run", return_value=empty):

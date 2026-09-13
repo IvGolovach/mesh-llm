@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def import_script(name: str, path: Path):
+    """Load an oracle helper directly without starting its command-line entrypoint."""
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -26,6 +27,7 @@ oracle = import_script("skippy_ocr_asr_oracle", ROOT / "scripts" / "skippy-ocr-a
 
 class OcrFixtureTests(unittest.TestCase):
     def test_png_is_deterministic_and_text_bearing(self):
+        """The OCR label must be represented by stable image pixels, not random media."""
         png = fixture.png_bytes()
         self.assertEqual(png, fixture.png_bytes())
         self.assertTrue(png.startswith(b"\x89PNG\r\n\x1a\n"))
@@ -43,6 +45,7 @@ class OcrFixtureTests(unittest.TestCase):
 
 class MultimodalOracleTests(unittest.TestCase):
     def test_ocr_requires_both_parity_and_known_text(self):
+        """Matching outputs are insufficient unless they also equal the independent label."""
         self.assertIn("mesh 42", oracle.compare_text("MESH 42", "Mesh 42.", "MESH 42"))
         with self.assertRaisesRegex(RuntimeError, "differs from monolithic"):
             oracle.compare_text("MESH 42", "MESH 43", "MESH 42")
@@ -52,17 +55,20 @@ class MultimodalOracleTests(unittest.TestCase):
             oracle.compare_text("MESH 42 extra", "Mesh 42 extra.", "MESH 42")
 
     def test_matching_incorrect_text_cannot_pass_by_containing_the_label(self):
+        """Extra hallucinated text must not pass an OCR substring match."""
         for text in ("not mesh 42", "mesh 42 unrelated text", "mesh 42 mesh 42"):
             with self.subTest(text=text), self.assertRaisesRegex(RuntimeError, "does not exactly match independently known"):
                 oracle.compare_text(text, text, "MESH 42")
 
     def test_asr_unlabeled_fixture_does_not_claim_accuracy(self):
+        """Reference agreement without ground truth remains parity, not recognition accuracy."""
         detail = oracle.compare_text("The mesh is ready.", "the mesh is ready", None)
         self.assertIn("no accuracy claim", detail)
         with self.assertRaisesRegex(RuntimeError, "returned empty text"):
             oracle.compare_text("!", "?", None)
 
     def test_asr_normalizes_only_known_decorative_prefixes(self):
+        """Normalization must not erase arbitrary transcript prefixes to manufacture agreement."""
         detail = oracle.compare_text(
             'The text is: "The mesh is ready"',
             'The audio is: "The mesh is ready"',
@@ -78,6 +84,7 @@ class MultimodalOracleTests(unittest.TestCase):
                                 None, transcript=True)
 
     def test_asr_matching_refusals_do_not_pass_as_transcripts(self):
+        """Identical refusals are failures even when reference and candidate agree."""
         with self.assertRaisesRegex(RuntimeError, "not a transcript"):
             oracle.compare_text("I can't fulfill this request.",
                                 "I can't fulfill this request.", None, transcript=True)
@@ -87,11 +94,13 @@ class MultimodalOracleTests(unittest.TestCase):
                                 None, transcript=True)
 
     def test_asr_repeated_reference_content_is_not_normalized_away(self):
+        """Repeated recognized content must remain visible to the equivalence comparison."""
         with self.assertRaisesRegex(RuntimeError, "differs from monolithic"):
             oracle.compare_text("The mesh is ready", "The mesh is ready. The mesh is ready.",
                                 None, transcript=True)
 
     def test_ocr_sends_same_request_to_both_servers(self):
+        """Candidate and reference receive identical model, image and prompt inputs."""
         reply = {"choices": [{"message": {"content": "MESH 42"}}]}
         with patch.object(oracle, "request_json", side_effect=[reply, reply]) as request:
             oracle.compare_ocr("http://candidate/v1", "http://reference/v1", "ocr", b"png", "MESH 42")
@@ -101,6 +110,7 @@ class MultimodalOracleTests(unittest.TestCase):
         self.assertEqual(candidate_call.args[1], "/chat/completions")
 
     def test_asr_aligns_reference_chat_prompt_with_candidate_audio_route(self):
+        """Compare equivalent transcription tasks across the two different HTTP interfaces."""
         with (
             patch.object(oracle, "request_multipart", return_value={"text": "The mesh is ready."}) as candidate,
             patch.object(oracle, "request_json", return_value={
@@ -123,6 +133,7 @@ class MultimodalOracleTests(unittest.TestCase):
         self.assertIn(f"--default-max-tokens {oracle.ASR_MAX_TOKENS}", runner)
 
     def test_asr_multipart_contains_deterministic_fields_and_audio(self):
+        """The upload preserves exact media bytes and deterministic transcription options."""
         with patch.object(oracle, "response_json", return_value={"text": "ok"}) as response:
             oracle.request_multipart("http://localhost/v1/", "/audio/transcriptions", "asr", b"RIFF\x00audio")
         request = response.call_args.args[0]

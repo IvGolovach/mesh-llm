@@ -27,6 +27,7 @@ enum CertifiedWorkloadClass {
 }
 
 impl CertifiedWorkloadClass {
+    /// Decode the closed workload-class vocabulary used by certification fixtures.
     fn parse(value: &str) -> Result<Self> {
         match value {
             "embedding" => Ok(Self::Embedding),
@@ -39,6 +40,7 @@ impl CertifiedWorkloadClass {
         }
     }
 
+    /// Identify classes whose native execution requires a pinned projector sidecar.
     fn requires_projector(self) -> bool {
         matches!(
             self,
@@ -46,10 +48,12 @@ impl CertifiedWorkloadClass {
         )
     }
 
+    /// Identify classes whose smoke needs a deterministic media input.
     fn requires_media(self) -> bool {
         matches!(self, Self::Ocr | Self::SpeechRecognition)
     }
 
+    /// Return the class label expected in fail-closed staged-execution errors.
     fn staging_label(self) -> Option<&'static str> {
         match self {
             Self::Embedding => Some("embedding"),
@@ -73,6 +77,7 @@ struct WorkloadFixture {
     n_gpu_layers: i32,
 }
 
+/// Reject absent fixture paths before attempting a model-backed certification.
 fn required_file(name: &str) -> Result<PathBuf> {
     let path = PathBuf::from(env::var_os(name).context(format!("{name} is required"))?);
     if !path.is_file() {
@@ -81,6 +86,7 @@ fn required_file(name: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
+/// Parse a typed fixture override and report the offending environment key.
 fn parse_env<T>(name: &str, default: T) -> Result<T>
 where
     T: std::str::FromStr,
@@ -93,6 +99,7 @@ where
     })
 }
 
+/// Resolve the explicitly selected class and its required local fixtures.
 fn workload_fixture() -> Result<Option<WorkloadFixture>> {
     let Some(class) = env::var(CLASS_ENV).ok() else {
         return Ok(None);
@@ -124,6 +131,7 @@ fn workload_fixture() -> Result<Option<WorkloadFixture>> {
     }))
 }
 
+/// Build a full-model CPU stage from the selected certification fixture.
 fn workload_stage_config(fixture: &WorkloadFixture) -> StageConfig {
     StageConfig {
         run_id: "workload-certification".to_string(),
@@ -159,6 +167,7 @@ fn workload_stage_config(fixture: &WorkloadFixture) -> StageConfig {
     }
 }
 
+/// Compare vector dimensions and each component with a bounded numeric tolerance.
 fn assert_vectors_close(left: &[f32], right: &[f32]) {
     assert_eq!(left.len(), right.len());
     let maximum_delta = left
@@ -169,6 +178,7 @@ fn assert_vectors_close(left: &[f32], right: &[f32]) {
     assert!(maximum_delta <= 1e-5, "embedding delta {maximum_delta}");
 }
 
+/// Check native vector shape, determinism and semantic separation for pinned inputs.
 async fn certify_embedding(backend: &StageOpenAiBackend) -> Result<()> {
     let info = backend.ensure_local_workload(ModelWorkload::Embedding)?;
     assert!(info.output_dimensions > 0);
@@ -206,6 +216,7 @@ async fn certify_embedding(backend: &StageOpenAiBackend) -> Result<()> {
     Ok(())
 }
 
+/// Check deterministic query-document scoring through the workload backend.
 async fn certify_rerank(backend: &StageOpenAiBackend) -> Result<()> {
     let info = backend.ensure_local_workload(ModelWorkload::Rerank)?;
     assert_eq!(info.classifier_outputs, 1);
@@ -235,6 +246,7 @@ async fn certify_rerank(backend: &StageOpenAiBackend) -> Result<()> {
     Ok(())
 }
 
+/// Exercise source encoding followed by decoder generation on the pinned model.
 async fn certify_encoder_decoder(backend: &StageOpenAiBackend, max_tokens: u32) -> Result<()> {
     backend.ensure_local_workload(ModelWorkload::EncoderDecoder)?;
     let request: CompletionRequest = serde_json::from_value(json!({
@@ -252,6 +264,7 @@ async fn certify_encoder_decoder(backend: &StageOpenAiBackend, max_tokens: u32) 
     Ok(())
 }
 
+/// Build an in-process media request from the exact fixture bytes.
 fn media_chat_request(fixture: &WorkloadFixture) -> Result<ChatCompletionRequest> {
     let path = fixture
         .media_path
@@ -273,6 +286,7 @@ fn media_chat_request(fixture: &WorkloadFixture) -> Result<ChatCompletionRequest
     .context("build OCR request")
 }
 
+/// Exercise the OCR projector and assert a usable textual result.
 async fn certify_ocr(backend: &StageOpenAiBackend, fixture: &WorkloadFixture) -> Result<()> {
     let first = backend
         .chat_completion(media_chat_request(fixture)?)
@@ -297,6 +311,7 @@ async fn certify_ocr(backend: &StageOpenAiBackend, fixture: &WorkloadFixture) ->
     Ok(())
 }
 
+/// Verify bounded audio generation and structured unsupported staging behavior.
 async fn certify_speech_synthesis(backend: &StageOpenAiBackend) -> Result<()> {
     assert!(
         backend
@@ -345,6 +360,7 @@ async fn certify_speech_synthesis(backend: &StageOpenAiBackend) -> Result<()> {
     Ok(())
 }
 
+/// Exercise transcription with the selected audio and projector fixtures.
 async fn certify_speech_recognition(
     backend: &StageOpenAiBackend,
     fixture: &WorkloadFixture,
@@ -373,6 +389,7 @@ async fn certify_speech_recognition(
     Ok(())
 }
 
+/// Require an explicit rejection when a full-model-only workload is staged.
 fn assert_unsupported_staging(
     backend: &StageOpenAiBackend,
     fixture: &WorkloadFixture,
@@ -401,6 +418,7 @@ fn assert_unsupported_staging(
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+/// Run the selected native class smoke only with its explicit local fixtures.
 async fn real_non_chat_class_smoke_when_fixture_is_set() -> Result<()> {
     let Some(fixture) = workload_fixture()? else {
         return Ok(());

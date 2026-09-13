@@ -119,7 +119,15 @@ def smoke_embedding(base_url: str, model: str) -> None:
         "/embeddings",
         {"model": model, "input": inputs[0], "encoding_format": "base64"},
     )
-    payload = encoded.get("data", [{}])[0].get("embedding")
+    if encoded.get("object") != "list" or encoded.get("model") != model:
+        raise RuntimeError("base64 embedding response has the wrong object or model")
+    rows = encoded.get("data")
+    if not isinstance(rows, list) or len(rows) != 1:
+        raise RuntimeError("base64 embedding response has the wrong batch size")
+    item = rows[0]
+    if not isinstance(item, dict) or item.get("object") != "embedding" or item.get("index") != 0:
+        raise RuntimeError("base64 embedding response has invalid item metadata")
+    payload = item.get("embedding")
     if not isinstance(payload, str):
         raise RuntimeError("base64 embedding is not a string")
     raw = base64.b64decode(payload, validate=True)

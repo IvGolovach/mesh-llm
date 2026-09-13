@@ -57,7 +57,14 @@ def main() -> None:
         input=inputs[0],
         encoding_format="base64",
     )
-    payload = encoded.data[0].embedding
+    if encoded.object != "list" or encoded.model != args.model:
+        raise RuntimeError("base64 embeddings response has the wrong object or model")
+    if len(encoded.data) != 1:
+        raise RuntimeError("base64 embeddings response has the wrong batch size")
+    item = encoded.data[0]
+    if item.object != "embedding" or item.index != 0:
+        raise RuntimeError("base64 embeddings response has invalid item metadata")
+    payload = item.embedding
     if not isinstance(payload, str):
         raise RuntimeError("base64 embedding did not deserialize as a string")
     raw = base64.b64decode(payload, validate=True)

@@ -70,6 +70,7 @@ pub(super) fn validate_speech_voice(voice: &str) -> OpenAiResult<()> {
 impl StageOpenAiBackend {
     /// Recognize complete local models in both standalone and embedded serving modes.
     pub(in crate::frontend) fn has_unsplit_full_model_topology(&self) -> bool {
+        /// Accept full-model execution only when the topology has no remote stage boundaries.
         fn is_unsplit(config: &skippy_protocol::StageConfig) -> bool {
             config.stage_index == 0
                 && config.layer_start == 0
@@ -274,6 +275,7 @@ impl StageOpenAiBackend {
     }
 }
 
+/// Remove only recognized model-generated transcript wrappers.
 fn audio_transcript_text(raw: &str) -> String {
     let text = raw.trim();
     for prefix in ["The text is:", "The audio is:"] {
@@ -288,6 +290,7 @@ fn audio_transcript_text(raw: &str) -> String {
     text.to_string()
 }
 
+/// Choose the transcription or translation instruction without changing supplied context.
 fn audio_text_instruction(
     request: &AudioTranscriptionRequest,
     translate_to_english: bool,
@@ -314,6 +317,7 @@ fn audio_text_instruction(
     instruction
 }
 
+/// Place the audio marker after the task instruction and optional prompt.
 fn audio_text_user_message(instruction: String) -> openai_frontend::ChatMessage {
     openai_frontend::ChatMessage {
         role: "user".to_string(),
@@ -342,6 +346,7 @@ fn audio_text_user_message(instruction: String) -> openai_frontend::ChatMessage 
 #[cfg(test)]
 mod tests {
     #[test]
+    /// Reject zero output width before reserving a native embedding session.
     fn invalid_embedding_dimensions_are_rejected_at_admission() {
         assert!(
             super::embedding_output_dimensions(0)
@@ -355,6 +360,7 @@ mod tests {
     }
 
     #[test]
+    /// Cost estimation must validate every document, including entries after valid ones.
     fn rerank_estimate_rejects_invalid_documents_before_workload_admission() {
         let mut request: openai_frontend::RerankRequest =
             serde_json::from_value(serde_json::json!({
@@ -372,6 +378,7 @@ mod tests {
     };
     use openai_frontend::{AudioTranscriptionRequest, MessageContent};
 
+    /// Construct a bounded transcription request for prompt and normalization tests.
     fn audio_request() -> AudioTranscriptionRequest {
         AudioTranscriptionRequest {
             model: "ultravox".to_string(),
@@ -385,6 +392,7 @@ mod tests {
     }
 
     #[test]
+    /// Default transcription uses the reference prompt with its audio marker last.
     fn transcription_uses_upstream_default_prompt_before_audio_marker() {
         let instruction = audio_text_instruction(&audio_request(), false);
         assert_eq!(instruction, "Transcribe audio to text");
@@ -401,6 +409,7 @@ mod tests {
     }
 
     #[test]
+    /// Normalize confirmed decoration without deleting ordinary transcript content.
     fn transcription_removes_only_confirmed_quoted_ultravox_wrappers() {
         assert_eq!(
             audio_transcript_text("The text is: \"The mesh is ready\""),
@@ -425,6 +434,7 @@ mod tests {
     }
 
     #[test]
+    /// Empty native output remains empty rather than becoming fabricated transcript text.
     fn transcription_preserves_empty_text_without_an_artificial_wrapper() {
         assert_eq!(audio_transcript_text("   "), "");
         assert_eq!(audio_transcript_text("The text is: \"\""), "");
@@ -432,6 +442,7 @@ mod tests {
     }
 
     #[test]
+    /// Task selection and user context must not move the media marker ahead of instructions.
     fn translation_and_explicit_context_keep_audio_marker_last() {
         let mut request = audio_request();
         request.language = Some("German".to_string());
@@ -452,6 +463,7 @@ mod tests {
     }
 
     #[test]
+    /// Voice selection must not be silently repurposed as a language selector.
     fn speech_voice_rejects_unsupported_speakers_without_reinterpreting_language() {
         validate_speech_voice("default").expect("the default native speaker is supported");
 
@@ -467,6 +479,7 @@ mod tests {
     }
 
     #[test]
+    /// Cancellation between batch items prevents any further native execution.
     fn workload_batch_stops_before_the_next_native_call_after_cancellation() {
         let cancellation = openai_frontend::CancellationToken::new();
         let mut calls = 0;
@@ -484,6 +497,7 @@ mod tests {
     }
 
     #[test]
+    /// Preserve cancellation classification through workload error translation.
     fn workload_error_keeps_structured_cancellation() {
         let error = workload_error(anyhow::Error::new(super::request_cancelled_error()));
         assert_eq!(

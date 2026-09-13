@@ -4,10 +4,12 @@ use tokio::net::{TcpListener, TcpStream};
 
 const MODEL: &str = "audio-workload";
 
+/// Build an audio upload whose file bytes cannot safely pass through JSON hooks.
 fn multipart(model: &str) -> Vec<u8> {
     [b"--test\r\nContent-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\nContent-Type: audio/wav\r\n\r\nRIFF\0{\xff}\x80\r\n--test\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\n".as_slice(), model.as_bytes(), b"\r\n--test--\r\n"].concat()
 }
 
+/// Create an isolated host advertising verified audio support for ingress tests.
 async fn audio_node() -> mesh::Node {
     let node = mesh::Node::new_for_tests(mesh::NodeRole::Worker)
         .await
@@ -34,6 +36,7 @@ async fn audio_node() -> mesh::Node {
     node
 }
 
+/// Exercise ingress-to-backend forwarding with either fixed or chunked framing.
 async fn route_audio(path: &str, chunked: bool) {
     let backend = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let backend_port = backend.local_addr().unwrap().port();
@@ -102,6 +105,7 @@ async fn route_audio(path: &str, chunked: bool) {
 }
 
 #[tokio::test]
+/// Pin binary preservation across automatic routing and HTTP body reconstruction.
 async fn automatic_audio_reaches_http_backend_with_intact_binary_and_decoded_framing() {
     for path in ["/v1/audio/transcriptions", "/v1/audio/translations?trace=1"] {
         for chunked in [false, true] {
