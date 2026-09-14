@@ -50,6 +50,7 @@ pub(in crate::network::openai) fn select_degrade_model(
         .or(unknown)
 }
 
+/// Keep workload-eligible hosts, preferring known fitting contexts over unknown sizes.
 pub(super) async fn eligible_remote_hosts(
     node: &mesh::Node,
     model: &str,

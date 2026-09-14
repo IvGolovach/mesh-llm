@@ -1046,6 +1046,7 @@ fn terminal_outcome_for_mesh_route_result(
     }
 }
 
+/// Distinguish rejected workload/media admission from unavailable-model routing failures.
 fn terminal_outcome_for_mesh_request_failure(
     failure: &MeshRequestFailure,
 ) -> crate::logging::TerminalOutcome {
@@ -1157,6 +1158,7 @@ async fn finish_exhausted_mesh_request(
     let _ = send_503_observed(tcp_stream, &reason, route_observer).await;
 }
 
+/// Derive generation affinity only for automatic chat routes, never stateless workloads.
 fn auto_session_key_for_request(
     request: &mut BufferedHttpRequest,
     is_auto_request: bool,

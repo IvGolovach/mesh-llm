@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import copy
 import json
-from pathlib import Path
 import struct
 import subprocess
 import tempfile
 import unittest
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PLANNER = ROOT / "scripts" / "plan-family-battery.py"
@@ -110,10 +109,11 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
         )
 
     def test_checked_in_policy_resolves_all_certified_models(self) -> None:
+        """Preserve all primary split targets and six explicitly classed workload-oracle rows."""
         result = self._run()
         self.assertEqual(0, result.returncode, result.stderr)
         plan = json.loads(result.stdout)
-        self.assertEqual(83, plan["selected_family_count"])
+        self.assertEqual(87, plan["selected_family_count"])
         self.assertEqual(
             ["single-step", "chain", "state-handoff"],
             plan["required_certification_lanes"],
@@ -156,9 +156,7 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
         self.assertEqual(600, by_family["qwen3-vl"]["resources"]["startup_timeout_secs"])
         qwen4exp = by_family["qwen4exp"]
         self.assertEqual(10240, qwen4exp["execution"]["activation_width"])
-        self.assertEqual(4, qwen4exp["execution"]["boundary_sweep_period"])
         self.assertEqual(3, len(qwen4exp["artifact"]["files"]))
-        self.assertEqual(16384, by_family["deepseek4"]["execution"]["activation_width"])
         expected_workloads = {
             "nomic-bert-embedding": ("embedding", "embedding-smoke"),
             "jina-bert-v2-rerank": ("rerank", "rerank-smoke"),
@@ -178,42 +176,18 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
                 self.assertEqual("workload-oracle", model["profile"])
                 self.assertEqual("certified", model["certification_status"])
                 self.assertEqual("local-monolithic", model["oracle"])
-                self.assertEqual(["llama-bump", "manual-full"], model["cadences"])
                 self.assertEqual("disabled", model["execution"]["speculative_policy"])
-                self.assertEqual(0, model["execution"]["boundary_sweep_period"])
                 self.assertEqual(0, model["execution"]["mtp_layers"])
+        for auxiliary in ("deepseek4", "gemma4-assistant", "muse-glimmer", "glm-dsa"):
+            self.assertNotIn(auxiliary, by_family)
 
-    def test_nightly_cadence_selects_cache_mechanism_sentinels(self) -> None:
+    def test_cadence_selection_is_removed(self) -> None:
         result = self._run(MANIFEST, "--cadence", "nightly")
-        self.assertEqual(0, result.returncode, result.stderr)
-        plan = json.loads(result.stdout)
-        self.assertEqual("nightly", plan["selected_cadence"])
-        self.assertEqual(
-            ["qwen3-dense", "falcon-h1", "qwen3-next", "mamba"],
-            [model["family"] for model in plan["selected_models"]],
-        )
-
-    def test_cadence_and_explicit_family_selection_intersect(self) -> None:
-        result = self._run(
-            MANIFEST,
-            "--cadence",
-            "nightly",
-            "--families",
-            "mamba,qwen3-dense",
-        )
-        self.assertEqual(0, result.returncode, result.stderr)
-        plan = json.loads(result.stdout)
-        self.assertEqual(
-            ["qwen3-dense", "mamba"],
-            [model["family"] for model in plan["selected_models"]],
-        )
-
-    def test_empty_cadence_selection_fails_closed(self) -> None:
-        result = self._run(MANIFEST, "--cadence", "rotating")
         self.assertEqual(2, result.returncode)
-        self.assertIn("family selection produced no models", result.stderr)
+        self.assertIn("unrecognized arguments: --cadence", result.stderr)
 
     def test_mmproj_artifacts_resolve_and_cover_the_vision_families(self) -> None:
+        """Require immutable projector sidecars for the complete causal and non-chat media roster."""
         result = self._run()
         self.assertEqual(0, result.returncode, result.stderr)
         plan = json.loads(result.stdout)
@@ -226,9 +200,9 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
             {
                 "gemma4",
                 "lfm2-vl",
-                "muse-glimmer",
                 "qwen2-vl",
                 "qwen3-vl",
+                "qwen3vlmoe",
                 "paddleocr",
                 "qwen3tts",
                 "ultravox",
@@ -314,7 +288,7 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
 
     def test_supplied_plan_rejects_tampered_selected_model_rows(self) -> None:
         """Reject changes to canonical model selection or shard metadata in supplied plans."""
-        generated = self._run(MANIFEST, "--cadence", "manual-full", "--shard-count", "2")
+        generated = self._run(MANIFEST, "--shard-count", "2")
         self.assertEqual(0, generated.returncode, generated.stderr)
         plan = json.loads(generated.stdout)
         family = plan["selected_models"].pop()["family"]
@@ -415,7 +389,7 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
             path.write_text(json.dumps(source), encoding="utf-8")
             speculative = self._run(path)
             model["execution"]["speculative_policy"] = "disabled"
-            model["execution"]["boundary_sweep_period"] = 1
+            model["execution"]["mtp_layers"] = 1
             path.write_text(json.dumps(source), encoding="utf-8")
             split = self._run(path)
 
@@ -727,6 +701,7 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
         self.assertIn("has no GGUF shard", result.stderr)
 
     def test_shards_are_deterministic_and_preserve_every_family_once(self) -> None:
+        """Sharding must be reproducible and neither duplicate nor omit a selected family."""
         first = self._run(MANIFEST, "--shard-count", "4")
         second = self._run(MANIFEST, "--shard-count", "4")
         self.assertEqual(0, first.returncode, first.stderr)
@@ -735,8 +710,8 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
         families = [
             family for shard in plan["shards"] for family in shard["families"]
         ]
-        self.assertEqual(83, len(families))
-        self.assertEqual(83, len(set(families)))
+        self.assertEqual(87, len(families))
+        self.assertEqual(87, len(set(families)))
         self.assertEqual(4, len(plan["github_matrix"]["include"]))
 
 

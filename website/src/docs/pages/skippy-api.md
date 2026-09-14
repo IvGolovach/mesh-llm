@@ -308,7 +308,7 @@ LLAMA_API enum skippy_status skippy_backend_device_at(
 <a id="skippy-fn-skippy-set-runtime-event-reporter"></a>
 #### `skippy_set_runtime_event_reporter`
 
-Installs one process-global runtime-scoped event reporter. Requires SKIPPY_FEATURE_RUNTIME_EVENT_REPORTER. Replaces any previously installed global reporter. The per-call model-open reporter passed to a `*_with_events` entrypoint still takes precedence for SKIPPY_RUNTIME_EVENT_CATEGORY_MODEL_OPEN events during that call; the global reporter receives events published through it by any capability module (backend/device/KV/diagnostic/unload/model-load-v2, added by sibling patches) via the shared internal dispatch path. Returns SKIPPY_STATUS_INVALID_ARGUMENT if `reporter` is null or its `struct_size` is smaller than `sizeof(struct skippy_runtime_event_reporter_v1)`. When replacing an existing reporter, waits until every in-flight callback using the previous reporter has returned before installing the replacement.
+Installs one process-global runtime-scoped event reporter. Requires SKIPPY_FEATURE_RUNTIME_EVENT_REPORTER. Replaces any previously installed global reporter. The per-call model-open reporter passed to a `*_with_events` entrypoint still takes precedence for SKIPPY_RUNTIME_EVENT_CATEGORY_MODEL_OPEN events during that call; the global reporter receives events published through it by any capability module (backend/device/KV/diagnostic/unload/model-load-v2, added by sibling patches) via the shared internal dispatch path. Returns SKIPPY_STATUS_INVALID_ARGUMENT if `reporter` is null or its `struct_size` is smaller than `sizeof(struct skippy_runtime_event_reporter_v1)`, or if called from a reporter callback. When replacing an existing reporter, waits until every in-flight callback using the previous reporter has returned before installing the replacement.
 
 ```cpp
 LLAMA_API enum skippy_status skippy_set_runtime_event_reporter(
@@ -318,7 +318,7 @@ LLAMA_API enum skippy_status skippy_set_runtime_event_reporter(
 <a id="skippy-fn-skippy-clear-runtime-event-reporter"></a>
 #### `skippy_clear_runtime_event_reporter`
 
-Removes the process-global runtime-scoped event reporter. Returns only after every in-flight callback invocation of the previously installed reporter has returned, so no callback occurs after this call returns. Idempotent: clearing when no reporter is installed is a no-op.
+Removes the process-global runtime-scoped event reporter. Returns only after every in-flight callback invocation of the previously installed reporter has returned, so no callback occurs after this call returns. Idempotent: clearing when no reporter is installed is a no-op. When called from a reporter callback, disables future callback admission and returns immediately; the calling callback remains active until it returns normally.
 
 ```cpp
 LLAMA_API void skippy_clear_runtime_event_reporter(

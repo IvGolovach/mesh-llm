@@ -1,8 +1,8 @@
 """CPU producer contract shared by unchanged and changed-pin canaries."""
-from pathlib import Path
 import json
 import subprocess
 import unittest
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PRODUCER = ROOT / "scripts/skippy-workload-oracles-build.sh"
@@ -25,7 +25,7 @@ class WorkloadOracleProducerTests(unittest.TestCase):
     def test_rejects_relative_or_environment_injection_paths(self) -> None:
         """Only absolute, safely exportable producer paths can enter the generated environment."""
         for path in ["relative", "/tmp/line\nGH_TOKEN=bad", "/tmp/line\rnext"]:
-            result = subprocess.run(["bash", str(PRODUCER), "--print-env", path], capture_output=True)
+            result = subprocess.run(["bash", str(PRODUCER), "--print-env", path], capture_output=True, check=False)
             self.assertNotEqual(0, result.returncode)
 
     def test_both_canary_paths_build_then_export_the_same_cpu_producers(self) -> None:
@@ -37,20 +37,24 @@ class WorkloadOracleProducerTests(unittest.TestCase):
             self.assertIn("skippy-workload-oracles-build.sh --print-env", text)
         self.assertLess(workflow.index("name: Build pinned CPU workload"), workflow.index("name: Supported-families certification battery"))
         producer = PRODUCER.read_text()
+        self.assertIn("-p skippy-topology --bins", producer)
         for contract in ["LLAMA_STAGE_BACKEND=cpu", "LLAMA_STAGE_LINK_MODE=static", "LLAMA_STAGE_WORKLOAD_ORACLE=ON", "CARGO_TARGET_DIR=", "--no-run --message-format=json", "--write-producer", "--source-snapshot"]:
             self.assertIn(contract, producer)
         consumer = (ROOT / "scripts/skippy-workload-certify.sh").read_text()
         self.assertIn("--producer-manifest", consumer)
         self.assertIn('TEST_COMMAND=("$(jq -er', consumer)
 
-    def test_all_six_workload_rows_guard_pin_advances_and_forced_certification(self) -> None:
-        """Both llama-bump and manual-full must retain every certified workload class."""
-        for cadence in ["llama-bump", "manual-full"]:
-            result = subprocess.run(
-                [str(ROOT / "scripts/plan-family-battery.py"), "--cadence", cadence],
-                cwd=ROOT, text=True, capture_output=True, check=True,
-            )
-            rows = [row for row in json.loads(result.stdout)["selected_models"] if row["class"] != "causal_generation"]
-            self.assertEqual(6, len(rows))
-            self.assertEqual({"embedding", "rerank", "encoder_decoder", "ocr", "speech_synthesis", "speech_recognition"}, {row["class"] for row in rows})
-            self.assertTrue(all(row["profile"] == "workload-oracle" for row in rows))
+    def test_full_roster_and_cpu_producer_include_non_chat_on_every_trigger(self) -> None:
+        """Nightly, pin changes, and forced runs share all six certified workload classes."""
+        result = subprocess.run(
+            [str(ROOT / "scripts/plan-family-battery.py")],
+            cwd=ROOT, text=True, capture_output=True, check=True,
+        )
+        rows = [row for row in json.loads(result.stdout)["selected_models"] if row["class"] != "causal_generation"]
+        self.assertEqual(6, len(rows))
+        self.assertEqual({"embedding", "rerank", "encoder_decoder", "ocr", "speech_synthesis", "speech_recognition"}, {row["class"] for row in rows})
+        self.assertTrue(all(row["profile"] == "workload-oracle" for row in rows))
+        workflow = (ROOT / ".github/workflows/llama-upstream-canary.yml").read_text()
+        producer_step = workflow.split("- name: Build pinned CPU workload oracles and candidate\n", 1)[1].split("      - name:", 1)[0]
+        self.assertNotIn("cadence", producer_step)
+        self.assertIn("steps.sha.outputs.certify == 'true'", producer_step)

@@ -736,6 +736,7 @@ fn cmake_cache_value(cache: &str, key: &str) -> Option<String> {
     })
 }
 
+/// Interpret affirmative CMake cache values after trimming platform whitespace.
 fn cmake_cache_bool(cache: &str, key: &str) -> bool {
     cmake_cache_value(cache, key)
         .map(|value| matches!(value.trim(), "ON" | "TRUE" | "1"))

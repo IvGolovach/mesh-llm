@@ -45,6 +45,7 @@ def producer_files(binary: Path, build_dir: Path, test_binary: Path) -> dict[str
         "test_binary": test_binary,
         "model_package": binary.parent / "skippy-model-package",
         "correctness": binary.parent / "skippy-correctness",
+        "topology_plan": binary.parent / "skippy-topology-plan",
         "native_stamp": build_dir / ".mesh-llm-build-stamp",
         **{name: build_dir / "bin" / name for name in ("llama-server", "llama-completion", "llama-tts")},
     }

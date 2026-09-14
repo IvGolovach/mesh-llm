@@ -40,7 +40,7 @@ if [[ "$(uname -s)" == Darwin ]]; then
   native_args+=(-DCMAKE_OSX_ARCHITECTURES=arm64)
 fi
 scripts/build-llama.sh "${native_args[@]}"
-just with-lld cargo build --locked -p skippy-server -p skippy-model-package -p skippy-correctness
+just with-lld cargo build --locked -p skippy-server -p skippy-model-package -p skippy-correctness -p skippy-topology --bins
 just with-lld cargo test --locked -p skippy-server --lib --no-run --message-format=json > "$BUILD_ROOT/test-artifacts.jsonl"
 test_binary="$(jq -rs '[.[] | select(.reason == "compiler-artifact" and .profile.test == true and .target.name == "skippy_server" and .executable != null) | .executable] | unique | if length == 1 then .[0] else error("expected one skippy-server library test binary") end' "$BUILD_ROOT/test-artifacts.jsonl")"
 python3 scripts/check-skippy-workload-candidate.py \

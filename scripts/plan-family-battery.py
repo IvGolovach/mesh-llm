@@ -14,12 +14,11 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path, PurePosixPath
 import re
 import struct
 import sys
+from pathlib import Path, PurePosixPath
 from typing import Any
-
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = ROOT / "ci" / "llama-canary" / "family-certified.json"
@@ -37,7 +36,6 @@ PROFILE_NAMES = ("full", "package-oracle", "graph-only", "workload-smoke", "work
 CERTIFIED_PROFILES = ("full", "package-oracle")
 CERTIFICATION_STATUSES = ("certified", "provisional")
 ORACLE_KINDS = ("local-monolithic", "independent-trace", "none")
-CADENCES = ("llama-bump", "manual-full", "nightly", "rotating")
 CACHE_POLICIES = ("immutable-local",)
 RUNNER_ROLES = ("family-certify",)
 SPECULATIVE_POLICIES = ("mtp-if-present", "disabled")
@@ -284,10 +282,7 @@ def _load_manifest(path: Path) -> tuple[dict[str, Any], str]:
 def _validate_policy(value: object) -> dict[str, Any]:
     """Enforce each profile's status, oracle type, and exact required lane contract."""
     policy = _object(value, "policy")
-    _exact_keys(policy, {"profiles", "cadences"}, "policy")
-    cadences = _string_list(policy.get("cadences"), "policy.cadences")
-    if tuple(cadences) != CADENCES:
-        raise PlanError("policy.cadences must list the complete supported cadence order")
+    _exact_keys(policy, {"profiles"}, "policy")
 
     profiles = _object(policy.get("profiles"), "policy.profiles")
     if set(profiles) != set(PROFILE_NAMES):
@@ -337,7 +332,7 @@ def _validate_policy(value: object) -> dict[str, Any]:
         raise PlanError("full profile must use the local-monolithic oracle")
     if normalized["package-oracle"]["oracle"] != "independent-trace":
         raise PlanError("package-oracle must use an independent trace")
-    return {"profiles": normalized, "cadences": cadences}
+    return {"profiles": normalized}
 
 
 def _normalize_models(value: object, policy: dict[str, Any]) -> list[dict[str, Any]]:
@@ -355,7 +350,6 @@ def _normalize_models(value: object, policy: dict[str, Any]) -> list[dict[str, A
                 "family",
                 "class",
                 "profile",
-                "cadences",
                 "artifact",
                 "draft_artifact",
                 "mmproj_artifact",
@@ -394,9 +388,6 @@ def _normalize_models(value: object, policy: dict[str, Any]) -> list[dict[str, A
             }
         elif "evidence" in model:
             raise PlanError(f"{field}.evidence requires workload-oracle")
-        cadences = _string_list(model.get("cadences"), f"{field}.cadences")
-        if not cadences or any(item not in policy["cadences"] for item in cadences):
-            raise PlanError(f"{field}.cadences contains an unsupported cadence")
         artifact = _artifact(model.get("artifact"), f"{field}.artifact")
         draft = None
         if "draft_artifact" in model:
@@ -421,7 +412,6 @@ def _normalize_models(value: object, policy: dict[str, Any]) -> list[dict[str, A
                 "trunk_layers",
                 "mtp_layers",
                 "activation_width",
-                "boundary_sweep_period",
                 "speculative_policy",
             },
             f"{field}.execution",
@@ -437,20 +427,14 @@ def _normalize_models(value: object, policy: dict[str, Any]) -> list[dict[str, A
             f"{field}.execution.activation_width",
             1,
         )
-        sweep_period = _integer(
-            execution.get("boundary_sweep_period"),
-            f"{field}.execution.boundary_sweep_period",
-        )
         layer_end = trunk_layers + mtp_layers
-        if sweep_period > layer_end:
-            raise PlanError(f"{field}.execution.boundary_sweep_period exceeds layer range")
         speculative_policy = _enum(
             execution.get("speculative_policy"),
             f"{field}.execution.speculative_policy",
             SPECULATIVE_POLICIES,
         )
         if model_class != "causal_generation":
-            if mtp_layers != 0 or sweep_period != 0:
+            if mtp_layers != 0:
                 raise PlanError(
                     f"{field}.class {model_class} must not request split or MTP certification"
                 )
@@ -507,7 +491,6 @@ def _normalize_models(value: object, policy: dict[str, Any]) -> list[dict[str, A
                     if model_class == "causal_generation"
                     else list(MODEL_CLASS_LANES[model_class][:1 if profile == "workload-smoke" else 2])
                 ),
-                "cadences": cadences,
                 "artifact": artifact,
                 "draft_artifact": draft,
                 "mmproj_artifact": mmproj,
@@ -516,7 +499,6 @@ def _normalize_models(value: object, policy: dict[str, Any]) -> list[dict[str, A
                     "mtp_layers": mtp_layers,
                     "activation_width": activation_width,
                     "layer_end": layer_end,
-                    "boundary_sweep_period": sweep_period,
                     "speculative_policy": speculative_policy,
                 },
                 "resources": {
@@ -533,14 +515,8 @@ def _normalize_models(value: object, policy: dict[str, Any]) -> list[dict[str, A
     return models
 
 
-def _select_models(
-    models: list[dict[str, Any]], families: str, cadence: str
-) -> list[dict[str, Any]]:
+def _select_models(models: list[dict[str, Any]], families: str) -> list[dict[str, Any]]:
     selected = models
-    if cadence:
-        if cadence not in CADENCES:
-            raise PlanError(f"--cadence must be one of: {', '.join(CADENCES)}")
-        selected = [model for model in selected if cadence in model["cadences"]]
     if not families:
         return selected
     requested = families.split(",")
@@ -557,9 +533,7 @@ def _select_models(
 
 
 def _work_weight(model: dict[str, Any]) -> int:
-    period = model["execution"]["boundary_sweep_period"]
-    certifications = 1 + (period * 3 if period else 0)
-    return model["resources"]["estimated_model_bytes"] * certifications
+    return model["resources"]["estimated_model_bytes"]
 
 
 def _shards(models: list[dict[str, Any]], requested_count: int) -> list[dict[str, Any]]:
@@ -664,16 +638,14 @@ def _verify_cache(models: list[dict[str, Any]], cache_root: Path) -> None:
 def build_plan(
     manifest_path: Path,
     families: str = "",
-    cadence: str = "",
     shard_count: int = 1,
     cache_root: Path | None = None,
 ) -> dict[str, Any]:
+    """Validate an immutable roster, optionally verify its cache, and shard selected families."""
     manifest, manifest_sha256 = _load_manifest(manifest_path)
     _exact_keys(manifest, {"schema_version", "policy", "models"}, "manifest")
     policy = _validate_policy(manifest.get("policy"))
-    models = _select_models(
-        _normalize_models(manifest.get("models"), policy), families, cadence
-    )
+    models = _select_models(_normalize_models(manifest.get("models"), policy), families)
     if not models:
         raise PlanError("family selection produced no models")
     if cache_root is not None:
@@ -704,7 +676,6 @@ def build_plan(
             model_class: list(lanes) for model_class, lanes in MODEL_CLASS_LANES.items()
         },
         "requested_families": families or None,
-        "selected_cadence": cadence or None,
         "selected_family_count": len(models),
         "selected_models": models,
         "shards": shards,
@@ -721,10 +692,10 @@ def _write_github_output(path: Path, plan: dict[str, Any], plan_path: Path) -> N
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
+    """Parse explicit family selection and read-only cache/plan verification options."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--families", default="")
-    parser.add_argument("--cadence", default="", choices=("", *CADENCES))
     parser.add_argument("--shard-count", type=int, default=1)
     parser.add_argument("--cache-root", type=Path)
     parser.add_argument("--check-cache", action="store_true")
@@ -740,6 +711,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Inspect GGUF metadata or generate/verify a source-bound deterministic policy plan."""
     args = _parse_args(sys.argv[1:] if argv is None else argv)
     if args.inspect_gguf is not None:
         dimensions = _gguf_dimensions(args.inspect_gguf)
@@ -764,16 +736,12 @@ def main(argv: list[str] | None = None) -> int:
         requested_families = supplied.get("requested_families")
         if requested_families is not None and not isinstance(requested_families, str):
             raise PlanError("plan.requested_families must be a string or null")
-        selected_cadence = supplied.get("selected_cadence")
-        if selected_cadence is not None and selected_cadence not in CADENCES:
-            raise PlanError("plan.selected_cadence is unsupported")
         shards = supplied.get("shards")
         if not isinstance(shards, list) or not shards:
             raise PlanError("plan.shards must be a nonempty list")
         expected = build_plan(
             args.manifest,
             families=requested_families or "",
-            cadence=selected_cadence or "",
             shard_count=len(shards),
         )
         if supplied != expected:
@@ -790,7 +758,6 @@ def main(argv: list[str] | None = None) -> int:
     plan = build_plan(
         args.manifest,
         families=args.families,
-        cadence=args.cadence,
         shard_count=args.shard_count,
         cache_root=cache_root,
     )

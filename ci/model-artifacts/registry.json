@@ -69,13 +69,7 @@
           "class-specific-oracle"
         ]
       }
-    },
-    "cadences": [
-      "llama-bump",
-      "manual-full",
-      "nightly",
-      "rotating"
-    ]
+    }
   },
   "unverified_consumers": [
     {
@@ -100,12 +94,12 @@
         "skippy-ci-smoke"
       ],
       "cadences": [
+        "pull-request",
+        "main",
         "llama-bump",
         "manual-full",
         "nightly",
-        "manual",
-        "pull-request",
-        "main"
+        "manual"
       ],
       "capability_tags": [
         "dense",
@@ -125,18 +119,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
-        "cadences": [
-          "llama-bump",
-          "manual-full",
-          "nightly"
-        ],
         "execution": {
           "trunk_layers": 28,
           "mtp_layers": 0,
           "activation_width": 1024,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -144,7 +131,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 633495552
         },
-        "notes": "core production dense baseline"
+        "notes": "core production dense baseline",
+        "class": "causal_generation"
       }
     },
     {
@@ -178,17 +166,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
-        "cadences": [
-          "llama-bump",
-          "manual-full"
-        ],
         "execution": {
           "trunk_layers": 16,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -196,7 +178,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 799862912
         },
-        "notes": "production dense baseline; covers the trimmed olmo2 architecture path"
+        "notes": "production dense baseline; covers the trimmed olmo2 architecture path",
+        "class": "causal_generation"
       }
     },
     {
@@ -227,13 +210,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 47,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -241,7 +222,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 18302863872
         },
-        "notes": "production MLA path shared with deepseek2; tensors span blk.0 through blk.46"
+        "notes": "production MLA path shared with deepseek2; tensors span blk.0 through blk.46",
+        "class": "causal_generation"
       }
     },
     {
@@ -271,13 +253,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 40,
           "mtp_layers": 0,
           "activation_width": 4096,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -285,7 +265,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 6244892672
         },
-        "notes": "production dense GLM path"
+        "notes": "production dense GLM path",
+        "class": "causal_generation"
       }
     },
     {
@@ -322,13 +303,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 46,
           "mtp_layers": 1,
           "activation_width": 4096,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -336,7 +315,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 72966388736
         },
-        "notes": "GLM4.5 MoE lineage; 46 trunk layers plus one MTP runtime layer; two shards"
+        "notes": "GLM4.5 MoE lineage; 46 trunk layers plus one MTP runtime layer; two shards",
+        "class": "causal_generation"
       }
     },
     {
@@ -370,17 +350,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
-        "cadences": [
-          "llama-bump",
-          "manual-full"
-        ],
         "execution": {
           "trunk_layers": 27,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -388,7 +362,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 10360420352
         },
-        "notes": "production MLA path"
+        "notes": "production MLA path",
+        "class": "causal_generation"
       }
     },
     {
@@ -419,13 +394,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 24,
           "mtp_layers": 0,
           "activation_width": 2880,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -433,7 +406,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 12096558336
         },
-        "notes": "MoE plus MXFP4; only quantization shipped"
+        "notes": "MoE plus MXFP4; only quantization shipped",
+        "class": "causal_generation"
       }
     },
     {
@@ -463,13 +437,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 48,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -477,7 +449,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 18550716416
         },
-        "notes": "production MoE; graph_max_nodes budget lane"
+        "notes": "production MoE; graph_max_nodes budget lane",
+        "class": "causal_generation"
       }
     },
     {
@@ -507,13 +480,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 24,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -521,7 +492,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 9490282496
         },
-        "notes": "small MoE architecture probe"
+        "notes": "small MoE architecture probe",
+        "class": "causal_generation"
       }
     },
     {
@@ -558,18 +530,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
-        "cadences": [
-          "llama-bump",
-          "manual-full",
-          "nightly"
-        ],
         "execution": {
           "trunk_layers": 24,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 4,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -577,7 +542,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 942121232
         },
-        "notes": "hybrid boundary sweep"
+        "notes": "hybrid boundary sweep",
+        "class": "causal_generation"
       }
     },
     {
@@ -608,13 +574,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 28,
           "mtp_layers": 0,
           "activation_width": 2560,
-          "boundary_sweep_period": 6,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -622,7 +586,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 1931112448
         },
-        "notes": "hybrid boundary sweep"
+        "notes": "hybrid boundary sweep",
+        "class": "causal_generation"
       }
     },
     {
@@ -654,13 +619,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 27,
           "mtp_layers": 0,
           "activation_width": 2304,
-          "boundary_sweep_period": 4,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -668,7 +631,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 13890288384
         },
-        "notes": "hybrid 3:1 interleave; canonical boundary-sweep model"
+        "notes": "hybrid 3:1 interleave; canonical boundary-sweep model",
+        "class": "causal_generation"
       }
     },
     {
@@ -701,13 +665,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 48,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 4,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -715,7 +677,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 22211435520
         },
-        "notes": "hybrid three-linear-to-one-attention path"
+        "notes": "hybrid three-linear-to-one-attention path",
+        "class": "causal_generation"
       }
     },
     {
@@ -757,13 +720,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 48,
           "mtp_layers": 0,
           "activation_width": 10240,
-          "boundary_sweep_period": 4,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -772,7 +733,8 @@
           "estimated_model_bytes": 72535436800,
           "startup_timeout_secs": 900
         },
-        "notes": "Qwen4 experimental hybrid path; four-wide hyper-connected residual boundary and QSA indexer"
+        "notes": "Qwen4 experimental hybrid path; four-wide hyper-connected residual boundary and QSA indexer",
+        "class": "causal_generation"
       }
     },
     {
@@ -805,13 +767,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 52,
           "mtp_layers": 1,
           "activation_width": 2688,
-          "boundary_sweep_period": 2,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -819,7 +779,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 25258358528
         },
-        "notes": "hybrid Mamba2 plus attention MoE; replacement for the invalid all-zero head_count_kv artifact"
+        "notes": "hybrid Mamba2 plus attention MoE; replacement for the invalid all-zero head_count_kv artifact",
+        "class": "causal_generation"
       }
     },
     {
@@ -850,13 +811,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 24,
           "mtp_layers": 0,
           "activation_width": 768,
-          "boundary_sweep_period": 2,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -864,7 +823,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 101794800
         },
-        "notes": "cheap recurrent boundary sweep"
+        "notes": "cheap recurrent boundary sweep",
+        "class": "causal_generation"
       }
     },
     {
@@ -894,13 +854,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 64,
           "mtp_layers": 0,
           "activation_width": 4096,
-          "boundary_sweep_period": 2,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -908,7 +866,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 4201906176
         },
-        "notes": "Mamba2 SSM canonical path"
+        "notes": "Mamba2 SSM canonical path",
+        "class": "causal_generation"
       }
     },
     {
@@ -938,13 +897,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 24,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 1,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -952,7 +909,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 991330304
         },
-        "notes": "recurrent v_first sideband crossing"
+        "notes": "recurrent v_first sideband crossing",
+        "class": "causal_generation"
       }
     },
     {
@@ -982,13 +940,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 32,
           "mtp_layers": 0,
           "activation_width": 2560,
-          "boundary_sweep_period": 1,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -996,7 +952,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 2313461760
         },
-        "notes": "recurrent; only real RWKV7 World3 GGUF"
+        "notes": "recurrent; only real RWKV7 World3 GGUF",
+        "class": "causal_generation"
       }
     },
     {
@@ -1030,17 +987,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
-        "cadences": [
-          "llama-bump",
-          "manual-full"
-        ],
         "execution": {
           "trunk_layers": 32,
           "mtp_layers": 0,
           "activation_width": 768,
-          "boundary_sweep_period": 3,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -1048,7 +999,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 219091712
         },
-        "notes": "cheap hybrid boundary sweep"
+        "notes": "cheap hybrid boundary sweep",
+        "class": "causal_generation"
       }
     },
     {
@@ -1079,17 +1031,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
-        "cadences": [
-          "llama-bump",
-          "manual-full"
-        ],
         "execution": {
           "trunk_layers": 24,
           "mtp_layers": 0,
           "activation_width": 1024,
-          "boundary_sweep_period": 4,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -1097,7 +1043,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 521555200
         },
-        "notes": "smallest public Qwen3.5 dense GGUF; hybrid gated-delta-net family with full-attention interval 4; coverage-expansion repair from the failed CI fixture row"
+        "notes": "smallest public Qwen3.5 dense GGUF; hybrid gated-delta-net family with full-attention interval 4; coverage-expansion repair from the failed CI fixture row",
+        "class": "causal_generation"
       }
     },
     {
@@ -1127,13 +1074,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 40,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -1141,7 +1086,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 1543549872
         },
-        "notes": "dense Granite path"
+        "notes": "dense Granite path",
+        "class": "causal_generation"
       }
     },
     {
@@ -1172,13 +1118,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 16,
           "mtp_layers": 0,
           "activation_width": 1024,
-          "boundary_sweep_period": 2,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -1186,7 +1130,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 226925568
         },
-        "notes": "cheap hybrid boundary sweep"
+        "notes": "cheap hybrid boundary sweep",
+        "class": "causal_generation"
       }
     },
     {
@@ -1219,13 +1164,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 16,
           "mtp_layers": 0,
           "activation_width": 1024,
-          "boundary_sweep_period": 2,
           "speculative_policy": "mtp-if-present"
         },
         "mmproj_artifact": {
@@ -1245,7 +1188,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 376830976
         },
-        "notes": "small official multimodal hybrid model; text, recurrent, and mmproj lanes"
+        "notes": "small official multimodal hybrid model; text, recurrent, and mmproj lanes",
+        "class": "causal_generation"
       }
     },
     {
@@ -1275,13 +1219,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 40,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -1289,7 +1231,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 20270574592
         },
-        "notes": "dense explicit poolside row"
+        "notes": "dense explicit poolside row",
+        "class": "causal_generation"
       }
     },
     {
@@ -1320,13 +1263,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 28,
           "mtp_layers": 0,
           "activation_width": 1536,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -1346,7 +1287,8 @@
               "sha256": "05cc3ae461a7b6aa4023312ccab549ecab77cf8677efee04f049fcbab55b8bc3"
             }
           ]
-        }
+        },
+        "class": "causal_generation"
       }
     },
     {
@@ -1377,13 +1319,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 36,
           "mtp_layers": 0,
           "activation_width": 4096,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -1404,7 +1344,8 @@
               "sha256": "d406d03ebabefdef86a2c86bf0c1b65f9e046f7a81c218f25de4931b46a07fc4"
             }
           ]
-        }
+        },
+        "class": "causal_generation"
       }
     },
     {
@@ -1434,13 +1375,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 26,
           "mtp_layers": 0,
           "activation_width": 2304,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -1448,7 +1387,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 10457367552
         },
-        "notes": "dense; only file in repository; gemma3 path trimmed"
+        "notes": "dense; only file in repository; gemma3 path trimmed",
+        "class": "causal_generation"
       }
     },
     {
@@ -1478,13 +1418,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 32,
           "mtp_layers": 0,
           "activation_width": 3072,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -1492,7 +1430,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 2392493568
         },
-        "notes": "dense Phi3 path"
+        "notes": "dense Phi3 path",
+        "class": "causal_generation"
       }
     },
     {
@@ -1522,13 +1461,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 40,
           "mtp_layers": 0,
           "activation_width": 5120,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -1536,7 +1473,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 8886743040
         },
-        "notes": "dense; Microsoft repository does not publish Q4_K_M"
+        "notes": "dense; Microsoft repository does not publish Q4_K_M",
+        "class": "causal_generation"
       }
     },
     {
@@ -1566,13 +1504,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 32,
           "mtp_layers": 0,
           "activation_width": 4544,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -1580,7 +1516,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 4972826368
         },
-        "notes": "dense Falcon path"
+        "notes": "dense Falcon path",
+        "class": "causal_generation"
       }
     },
     {
@@ -1610,13 +1547,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 24,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -1624,7 +1559,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 3778420736
         },
-        "notes": "dense InternLM2 path"
+        "notes": "dense InternLM2 path",
+        "class": "causal_generation"
       }
     },
     {
@@ -1654,13 +1590,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 40,
           "mtp_layers": 0,
           "activation_width": 5120,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -1668,7 +1602,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 14326026240
         },
-        "notes": "dense; relabelled from mistral3"
+        "notes": "dense; relabelled from mistral3",
+        "class": "causal_generation"
       }
     },
     {
@@ -1698,13 +1633,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 32,
           "mtp_layers": 0,
           "activation_width": 4096,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -1712,7 +1645,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 5046091776
         },
-        "notes": "dense Cohere2 path"
+        "notes": "dense Cohere2 path",
+        "class": "causal_generation"
       }
     },
     {
@@ -1742,13 +1676,11 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 36,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
@@ -1756,7 +1688,8 @@
           "cache_policy": "immutable-local",
           "estimated_model_bytes": 1907462144
         },
-        "notes": "dense SmolLM3 path"
+        "notes": "dense SmolLM3 path",
+        "class": "causal_generation"
       }
     },
     {
@@ -1936,21 +1869,20 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 24,
           "mtp_layers": 0,
           "activation_width": 896,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 397805248
+          "estimated_model_bytes": 391859712
         },
-        "notes": "expansion: dense qwen2 arch coverage"
+        "notes": "expansion: dense qwen2 arch coverage",
+        "class": "causal_generation"
       }
     },
     {
@@ -1980,21 +1912,20 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 24,
           "mtp_layers": 0,
           "activation_width": 1024,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 561444928
+          "estimated_model_bytes": 548823040
         },
-        "notes": "expansion: bloom arch coverage"
+        "notes": "expansion: bloom arch coverage",
+        "class": "causal_generation"
       }
     },
     {
@@ -2024,21 +1955,20 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 18,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 1495245728
+          "estimated_model_bytes": 1489203200
         },
-        "notes": "expansion: dense gemma arch coverage"
+        "notes": "expansion: dense gemma arch coverage",
+        "class": "causal_generation"
       }
     },
     {
@@ -2068,21 +1998,20 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 26,
           "mtp_layers": 0,
           "activation_width": 1152,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 806058240
+          "estimated_model_bytes": 799525120
         },
-        "notes": "expansion: dense gemma3 arch coverage"
+        "notes": "expansion: dense gemma3 arch coverage",
+        "class": "causal_generation"
       }
     },
     {
@@ -2112,21 +2041,20 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 32,
           "mtp_layers": 0,
           "activation_width": 2560,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 1789239136
+          "estimated_model_bytes": 1787432960
         },
-        "notes": "expansion: dense phi2 arch coverage"
+        "notes": "expansion: dense phi2 arch coverage",
+        "class": "causal_generation"
       }
     },
     {
@@ -2156,21 +2084,20 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 30,
           "mtp_layers": 0,
           "activation_width": 3072,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 1848976448
+          "estimated_model_bytes": 1847230464
         },
-        "notes": "expansion: dense starcoder2 arch coverage"
+        "notes": "expansion: dense starcoder2 arch coverage",
+        "class": "causal_generation"
       }
     },
     {
@@ -2200,21 +2127,20 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 24,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 1031442432
+          "estimated_model_bytes": 1027883008
         },
-        "notes": "expansion: dense stablelm arch coverage"
+        "notes": "expansion: dense stablelm arch coverage",
+        "class": "causal_generation"
       }
     },
     {
@@ -2244,21 +2170,20 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 16,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 935515296
+          "estimated_model_bytes": 931962880
         },
-        "notes": "expansion: dense olmo2 arch coverage"
+        "notes": "expansion: dense olmo2 arch coverage",
+        "class": "causal_generation"
       }
     },
     {
@@ -2288,21 +2213,20 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 30,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 812437792
+          "estimated_model_bytes": 808230016
         },
-        "notes": "expansion: dense exaone4 arch coverage"
+        "notes": "expansion: dense exaone4 arch coverage",
+        "class": "causal_generation"
       }
     },
     {
@@ -2332,21 +2256,20 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 62,
           "mtp_layers": 0,
           "activation_width": 2560,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 2469791584
+          "estimated_model_bytes": 2468069280
         },
-        "notes": "expansion: dense minicpm3 arch coverage"
+        "notes": "expansion: dense minicpm3 arch coverage",
+        "class": "causal_generation"
       }
     },
     {
@@ -2376,21 +2299,20 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 32,
           "mtp_layers": 0,
           "activation_width": 3072,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 2697387072
+          "estimated_model_bytes": 2691047424
         },
-        "notes": "expansion: dense nemotron arch coverage (distinct from nemotron_h_moe row)"
+        "notes": "expansion: dense nemotron arch coverage (distinct from nemotron_h_moe row)",
+        "class": "causal_generation"
       }
     },
     {
@@ -2420,21 +2342,20 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 36,
           "mtp_layers": 0,
           "activation_width": 2560,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 2916301824
+          "estimated_model_bytes": 2908474660
         },
-        "notes": "expansion: arcee/AFM arch coverage"
+        "notes": "expansion: arcee/AFM arch coverage",
+        "class": "causal_generation"
       }
     },
     {
@@ -2464,21 +2385,20 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 32,
           "mtp_layers": 0,
           "activation_width": 4096,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 4390524128
+          "estimated_model_bytes": 4388741120
         },
-        "notes": "expansion: mpt arch coverage"
+        "notes": "expansion: mpt arch coverage",
+        "class": "causal_generation"
       }
     },
     {
@@ -2508,21 +2428,20 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 32,
           "mtp_layers": 0,
           "activation_width": 4096,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 5057885568
+          "estimated_model_bytes": 5049991424
         },
-        "notes": "expansion: apertus arch coverage"
+        "notes": "expansion: apertus arch coverage",
+        "class": "causal_generation"
       }
     },
     {
@@ -2552,21 +2471,20 @@
         ]
       },
       "certification": {
-        "class": "causal_generation",
         "profile": "full",
         "execution": {
           "trunk_layers": 40,
           "mtp_layers": 0,
           "activation_width": 4096,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 6166574944
+          "estimated_model_bytes": 6157238272
         },
-        "notes": "expansion: glm4/chatglm arch coverage (distinct from existing glm4 row arch chatglm: replaces it only if identical family label is rejected)"
+        "notes": "expansion: glm4/chatglm arch coverage (distinct from existing glm4 row arch chatglm: replaces it only if identical family label is rejected)",
+        "class": "causal_generation"
       }
     },
     {
@@ -2601,13 +2519,12 @@
           "trunk_layers": 32,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 15823053440
+          "estimated_model_bytes": 15815687168
         },
         "notes": "downloaded AFMoE architecture coverage",
         "class": "causal_generation"
@@ -2645,13 +2562,12 @@
           "trunk_layers": 28,
           "mtp_layers": 0,
           "activation_width": 3584,
-          "boundary_sweep_period": 1,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 5117561504
+          "estimated_model_bytes": 5111586816
         },
         "notes": "ARWKV recurrent architecture coverage",
         "class": "causal_generation"
@@ -2691,13 +2607,12 @@
           "trunk_layers": 24,
           "mtp_layers": 0,
           "activation_width": 1536,
-          "boundary_sweep_period": 4,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 15803475200
+          "estimated_model_bytes": 15796958848
         },
         "notes": "hybrid three-recurrent-to-one-attention boundary sweep",
         "class": "causal_generation"
@@ -2735,13 +2650,12 @@
           "trunk_layers": 32,
           "mtp_layers": 0,
           "activation_width": 4096,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 4274466400
+          "estimated_model_bytes": 4272308224
         },
         "notes": "downloaded Chameleon architecture coverage",
         "class": "causal_generation"
@@ -2780,59 +2694,14 @@
           "trunk_layers": 4,
           "mtp_layers": 0,
           "activation_width": 7168,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 16131110560
+          "estimated_model_bytes": 16125871104
         },
         "notes": "compact four-layer DeepSeek 3.2 architecture probe",
-        "class": "causal_generation"
-      }
-    },
-    {
-      "id": "family-deepseek4",
-      "family": "deepseek4",
-      "suites": [
-        "llama-family-certification"
-      ],
-      "cadences": [
-        "llama-bump",
-        "manual-full"
-      ],
-      "capability_tags": [
-        "gguf",
-        "moe"
-      ],
-      "artifact": {
-        "repo": "huihui-ai/Huihui-DeepSeek-V4-Flash-0731-abliterated-GGUF",
-        "revision": "a8dfba9c1e43bdf324ee2c7787ed01c70975ffb4",
-        "selector": "Q8_0",
-        "files": [
-          {
-            "path": "dspark-abliterated/dspark-DeepSeek-V4-Flash-0731-Q8_0.gguf",
-            "size_bytes": 10896057440,
-            "sha256": "6575853d1c3736c160101bc7cd117c8edd39ca847cfdf2273d9a344108edfaf8"
-          }
-        ]
-      },
-      "certification": {
-        "profile": "full",
-        "execution": {
-          "trunk_layers": 3,
-          "mtp_layers": 0,
-          "activation_width": 16384,
-          "boundary_sweep_period": 0,
-          "speculative_policy": "mtp-if-present"
-        },
-        "resources": {
-          "runner_role": "family-certify",
-          "cache_policy": "immutable-local",
-          "estimated_model_bytes": 10896057440
-        },
-        "notes": "DeepSeek V4 Flash dflash path with four hyper-connection streams",
         "class": "causal_generation"
       }
     },
@@ -2868,13 +2737,12 @@
           "trunk_layers": 27,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 14302555328
+          "estimated_model_bytes": 14296595968
         },
         "notes": "downloaded dots1 MoE architecture coverage",
         "class": "causal_generation"
@@ -2912,13 +2780,12 @@
           "trunk_layers": 18,
           "mtp_layers": 0,
           "activation_width": 1024,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 240645504
+          "estimated_model_bytes": 238262272
         },
         "notes": "small ERNIE 4.5 dense architecture probe",
         "class": "causal_generation"
@@ -2956,13 +2823,12 @@
           "trunk_layers": 28,
           "mtp_layers": 0,
           "activation_width": 2560,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 13245833216
+          "estimated_model_bytes": 13243429632
         },
         "notes": "downloaded ERNIE 4.5 MoE architecture coverage",
         "class": "causal_generation"
@@ -3000,13 +2866,12 @@
           "trunk_layers": 35,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 4237063328
+          "estimated_model_bytes": 4230498240
         },
         "notes": "text-only Gemma 3n architecture coverage",
         "class": "causal_generation"
@@ -3044,13 +2909,12 @@
           "trunk_layers": 42,
           "mtp_layers": 0,
           "activation_width": 2560,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 5335285728
+          "estimated_model_bytes": 5319465128
         },
         "notes": "Gemma 4 text and projector lanes",
         "mmproj_artifact": {
@@ -3065,50 +2929,6 @@
             }
           ]
         },
-        "class": "causal_generation"
-      }
-    },
-    {
-      "id": "family-gemma4-assistant",
-      "family": "gemma4-assistant",
-      "suites": [
-        "llama-family-certification"
-      ],
-      "cadences": [
-        "llama-bump",
-        "manual-full"
-      ],
-      "capability_tags": [
-        "dense",
-        "gguf"
-      ],
-      "artifact": {
-        "repo": "RachidAR/gemma-4-26B-A4B-it-qat-assistant-q4_0-gguf",
-        "revision": "64fc324e6829824a37518f5a7c8841ac9a559d5b",
-        "selector": "Q4_0",
-        "files": [
-          {
-            "path": "gemma-4-26b-A4B-it-assistant-Q4_0-q4emb.gguf",
-            "size_bytes": 251938176,
-            "sha256": "6195511a1bf402b1ab3ec3631347f310b4085774a17a0c6e673ea8988cc0a9fc"
-          }
-        ]
-      },
-      "certification": {
-        "profile": "full",
-        "execution": {
-          "trunk_layers": 4,
-          "mtp_layers": 0,
-          "activation_width": 1024,
-          "boundary_sweep_period": 0,
-          "speculative_policy": "mtp-if-present"
-        },
-        "resources": {
-          "runner_role": "family-certify",
-          "cache_policy": "immutable-local",
-          "estimated_model_bytes": 251938176
-        },
-        "notes": "compact Gemma 4 assistant architecture probe",
         "class": "causal_generation"
       }
     },
@@ -3144,13 +2964,12 @@
           "trunk_layers": 44,
           "mtp_layers": 0,
           "activation_width": 6144,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 13135032320
+          "estimated_model_bytes": 13133230080
         },
         "notes": "downloaded GPT-NeoX architecture coverage",
         "class": "causal_generation"
@@ -3189,13 +3008,12 @@
           "trunk_layers": 28,
           "mtp_layers": 0,
           "activation_width": 1280,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 6047918368
+          "estimated_model_bytes": 6044351680
         },
         "notes": "Granite sliding-window MoE architecture coverage",
         "class": "causal_generation"
@@ -3233,13 +3051,12 @@
           "trunk_layers": 24,
           "mtp_layers": 0,
           "activation_width": 1024,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 821847360
+          "estimated_model_bytes": 820107736
         },
         "notes": "downloaded Granite MoE architecture coverage",
         "class": "causal_generation"
@@ -3277,13 +3094,12 @@
           "trunk_layers": 40,
           "mtp_layers": 0,
           "activation_width": 2560,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 8428497696
+          "estimated_model_bytes": 8424888320
         },
         "notes": "Granite Switch adapter-router architecture coverage",
         "class": "causal_generation"
@@ -3321,13 +3137,12 @@
           "trunk_layers": 48,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 20167310304
+          "estimated_model_bytes": 20161329152
         },
         "notes": "downloaded GroveMoE architecture coverage",
         "class": "causal_generation"
@@ -3365,13 +3180,12 @@
           "trunk_layers": 32,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 1133084864
+          "estimated_model_bytes": 1127990304
         },
         "notes": "downloaded Hunyuan dense architecture coverage",
         "class": "causal_generation"
@@ -3409,13 +3223,12 @@
           "trunk_layers": 48,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 18236703520
+          "estimated_model_bytes": 18231574016
         },
         "notes": "downloaded Tencent HY v3 MoE architecture coverage",
         "class": "causal_generation"
@@ -3453,13 +3266,12 @@
           "trunk_layers": 40,
           "mtp_layers": 0,
           "activation_width": 5120,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 8967115424
+          "estimated_model_bytes": 8962816000
         },
         "notes": "downloaded Jais architecture coverage",
         "class": "causal_generation"
@@ -3497,13 +3309,12 @@
           "trunk_layers": 32,
           "mtp_layers": 0,
           "activation_width": 3328,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 5104022560
+          "estimated_model_bytes": 5097211392
         },
         "notes": "gated Jais 2 artifact with locally verified immutable digest",
         "class": "causal_generation"
@@ -3543,13 +3354,12 @@
           "trunk_layers": 8,
           "mtp_layers": 0,
           "activation_width": 1024,
-          "boundary_sweep_period": 4,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 784318432
+          "estimated_model_bytes": 777396384
         },
         "notes": "compact hybrid three-recurrent-to-one-attention boundary sweep",
         "class": "causal_generation"
@@ -3590,13 +3400,12 @@
           "trunk_layers": 24,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 4,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 5138197824
+          "estimated_model_bytes": 5129959168
         },
         "notes": "LFM2 MoE hybrid recurrent boundary sweep",
         "class": "causal_generation"
@@ -3634,13 +3443,12 @@
           "trunk_layers": 32,
           "mtp_layers": 0,
           "activation_width": 1536,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 672108288
+          "estimated_model_bytes": 666155520
         },
         "notes": "downloaded Maincoder architecture coverage",
         "class": "causal_generation"
@@ -3679,13 +3487,12 @@
           "trunk_layers": 28,
           "mtp_layers": 0,
           "activation_width": 2304,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 8071294784
+          "estimated_model_bytes": 8067705856
         },
         "notes": "Mellum MoE sliding-window architecture coverage",
         "class": "causal_generation"
@@ -3723,21 +3530,65 @@
           "trunk_layers": 32,
           "mtp_layers": 0,
           "activation_width": 4096,
-          "boundary_sweep_period": 0,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 4965526048
+          "estimated_model_bytes": 4963831552
         },
         "notes": "downloaded MiniCPM 4.1 architecture coverage",
         "class": "causal_generation"
       }
     },
     {
-      "id": "family-muse-glimmer",
-      "family": "muse-glimmer",
+      "id": "family-qwen35moe",
+      "family": "qwen35moe",
+      "suites": [
+        "llama-family-certification"
+      ],
+      "cadences": [
+        "llama-bump",
+        "manual-full"
+      ],
+      "capability_tags": [
+        "gguf",
+        "hybrid",
+        "moe",
+        "recurrent"
+      ],
+      "artifact": {
+        "repo": "unsloth/Qwen3.6-35B-A3B-GGUF",
+        "revision": "a483e9e6cbd595906af30beda3187c2663a1118c",
+        "selector": "UD-IQ2_XXS",
+        "files": [
+          {
+            "path": "Qwen3.6-35B-A3B-UD-IQ2_XXS.gguf",
+            "size_bytes": 10756586464,
+            "sha256": "2e8f5f705355c56311432d0a8a5d14a696dbb7e4b197d05c75ba805fc1857bef"
+          }
+        ]
+      },
+      "certification": {
+        "profile": "full",
+        "execution": {
+          "trunk_layers": 40,
+          "mtp_layers": 0,
+          "activation_width": 2048,
+          "speculative_policy": "mtp-if-present"
+        },
+        "resources": {
+          "runner_role": "family-certify",
+          "cache_policy": "immutable-local",
+          "estimated_model_bytes": 10745596416
+        },
+        "notes": "Qwen3.6 MoE gated-delta-net family with a four-layer full-attention interval",
+        "class": "causal_generation"
+      }
+    },
+    {
+      "id": "family-qwen3vlmoe",
+      "family": "qwen3vlmoe",
       "suites": [
         "llama-family-certification"
       ],
@@ -3748,47 +3599,284 @@
       "capability_tags": [
         "gguf",
         "moe",
-        "multimodal"
+        "multimodal",
+        "projector"
       ],
       "artifact": {
-        "repo": "Blackfrost-AI/Muse-Glimmer-30B-Abliterated-GGUF",
-        "revision": "83e7dc723f5515704adc8767dfeb279de3df914d",
+        "repo": "Qwen/Qwen3-VL-30B-A3B-Instruct-GGUF",
+        "revision": "f54435e6cc31258f04b0969105c3f6badb197931",
         "selector": "Q4_K_M",
         "files": [
           {
-            "path": "dflash-Muse-Glimmer-30B-Abliterated-Q4_K_M.gguf",
-            "size_bytes": 1631210720,
-            "sha256": "1b58b92b670d20b49d06a9a1210e4bf5350696bb8f7b4931769b7000d0456eda"
+            "path": "Qwen3VL-30B-A3B-Instruct-Q4_K_M.gguf",
+            "size_bytes": 18556687168,
+            "sha256": "87bb374d849f80ebdfabb304189fac9e0bd35a0f74506e6a59c51b206cbe863b"
           }
         ]
       },
       "certification": {
         "profile": "full",
         "execution": {
-          "trunk_layers": 5,
+          "trunk_layers": 48,
           "mtp_layers": 0,
-          "activation_width": 6656,
-          "boundary_sweep_period": 0,
+          "activation_width": 2048,
           "speculative_policy": "mtp-if-present"
         },
         "resources": {
           "runner_role": "family-certify",
           "cache_policy": "immutable-local",
-          "estimated_model_bytes": 1631210720
+          "estimated_model_bytes": 18550716416,
+          "startup_timeout_secs": 900
         },
-        "notes": "Muse Glimmer dflash text and projector lanes",
+        "notes": "Qwen3 VL MoE text and real-projector split certification",
         "mmproj_artifact": {
-          "repo": "Blackfrost-AI/Muse-Glimmer-30B-Abliterated-GGUF",
-          "revision": "83e7dc723f5515704adc8767dfeb279de3df914d",
-          "selector": "F16",
+          "repo": "Qwen/Qwen3-VL-30B-A3B-Instruct-GGUF",
+          "revision": "f54435e6cc31258f04b0969105c3f6badb197931",
+          "selector": "Q8_0",
           "files": [
             {
-              "path": "mmproj-Muse-Glimmer-30B-Abliterated-F16.gguf",
-              "size_bytes": 3847367616,
-              "sha256": "c2e08b8bd13ca60b59ffdcb79b969b354b1edda9b9198047d10621adc11591bb"
+              "path": "mmproj-Qwen3VL-30B-A3B-Instruct-Q8_0.gguf",
+              "size_bytes": 712148928,
+              "sha256": "82a9966edfdbc1b18a27fd90af96d50cbf111a51484f6290e946dccf461c8150"
             }
           ]
         },
+        "class": "causal_generation"
+      }
+    },
+    {
+      "id": "family-mistral4",
+      "family": "mistral4",
+      "suites": [
+        "llama-family-certification"
+      ],
+      "cadences": [
+        "llama-bump",
+        "manual-full"
+      ],
+      "capability_tags": [
+        "gguf",
+        "mla",
+        "moe"
+      ],
+      "artifact": {
+        "repo": "unsloth/Mistral-Small-4-119B-2603-GGUF",
+        "revision": "bd93c721735aa32c035c0f19e738cb3371fd56ff",
+        "selector": "UD-IQ2_XXS",
+        "files": [
+          {
+            "path": "Mistral-Small-4-119B-2603-UD-IQ2_XXS.gguf",
+            "size_bytes": 34924187328,
+            "sha256": "82a676844e27065abe36cf9292603b6e2484a23ca5665a6d8a0bc62ac478beb3"
+          }
+        ]
+      },
+      "certification": {
+        "profile": "full",
+        "execution": {
+          "trunk_layers": 36,
+          "mtp_layers": 0,
+          "activation_width": 4096,
+          "speculative_policy": "mtp-if-present"
+        },
+        "resources": {
+          "runner_role": "family-certify",
+          "cache_policy": "immutable-local",
+          "estimated_model_bytes": 34916274176
+        },
+        "notes": "Mistral Small 4 MoE and MLA architecture coverage",
+        "class": "causal_generation"
+      }
+    },
+    {
+      "id": "family-step35",
+      "family": "step35",
+      "suites": [
+        "llama-family-certification"
+      ],
+      "cadences": [
+        "manual-full"
+      ],
+      "capability_tags": [
+        "gguf",
+        "moe"
+      ],
+      "artifact": {
+        "repo": "bartowski/stepfun-ai_Step-3.5-Flash-GGUF",
+        "revision": "a2943ef56a0a240bdfb9a2feee97a775f612476d",
+        "selector": "IQ1_S",
+        "files": [
+          {
+            "path": "stepfun-ai_Step-3.5-Flash-IQ1_S.gguf",
+            "size_bytes": 41301534944,
+            "sha256": "69a6683e8e427c17170aaa55c8ac1160d7b24c18aa2a60ea11e3f5810c3ebb97"
+          }
+        ]
+      },
+      "certification": {
+        "profile": "full",
+        "execution": {
+          "trunk_layers": 45,
+          "mtp_layers": 0,
+          "activation_width": 4096,
+          "speculative_policy": "mtp-if-present"
+        },
+        "resources": {
+          "runner_role": "family-certify",
+          "cache_policy": "immutable-local",
+          "estimated_model_bytes": 41296256512
+        },
+        "notes": "Step 3.5 Flash MoE with three leading dense blocks and mixed attention windows",
+        "class": "causal_generation"
+      }
+    },
+    {
+      "id": "family-mimo2",
+      "family": "mimo2",
+      "suites": [
+        "llama-family-certification"
+      ],
+      "cadences": [
+        "manual-full"
+      ],
+      "capability_tags": [
+        "gguf",
+        "moe",
+        "mtp",
+        "multipart"
+      ],
+      "artifact": {
+        "repo": "bartowski/MiMo-V2.5-GGUF",
+        "revision": "e528cbf4b6197dd642b393acc069fb1cd529e085",
+        "selector": "IQ1_S",
+        "files": [
+          {
+            "path": "MiMo-V2.5-IQ1_S/MiMo-V2.5-IQ1_S-00001-of-00002.gguf",
+            "size_bytes": 39894774368,
+            "sha256": "a4f597f6dd9369240cf12d0b4a8c118e0659bf123b4290e042a6f334c2182520"
+          },
+          {
+            "path": "MiMo-V2.5-IQ1_S/MiMo-V2.5-IQ1_S-00002-of-00002.gguf",
+            "size_bytes": 24622278784,
+            "sha256": "50b56e1aabb935f7505b7aea37883957489509bb56c34a575c90496754ad593f"
+          }
+        ]
+      },
+      "certification": {
+        "profile": "full",
+        "execution": {
+          "trunk_layers": 48,
+          "mtp_layers": 3,
+          "activation_width": 4096,
+          "speculative_policy": "mtp-if-present"
+        },
+        "resources": {
+          "runner_role": "family-certify",
+          "cache_policy": "immutable-local",
+          "estimated_model_bytes": 64511067648
+        },
+        "notes": "MiMo V2.5 MoE with three native NextN heads",
+        "class": "causal_generation"
+      }
+    },
+    {
+      "id": "family-minimax-m3",
+      "family": "minimax-m3",
+      "suites": [
+        "llama-family-certification"
+      ],
+      "cadences": [
+        "manual-full"
+      ],
+      "capability_tags": [
+        "gguf",
+        "moe",
+        "multipart"
+      ],
+      "artifact": {
+        "repo": "unsloth/MiniMax-M3-GGUF",
+        "revision": "a31ac6425155f773fdde697421c3b8cf42083ecf",
+        "selector": "UD-IQ1_M",
+        "files": [
+          {
+            "path": "UD-IQ1_M/MiniMax-M3-UD-IQ1_M-00001-of-00004.gguf",
+            "size_bytes": 8243104,
+            "sha256": "b1c2b41d5078f43c2229c790f86266c68ce5d6d23f05c93085951a30acaca998"
+          },
+          {
+            "path": "UD-IQ1_M/MiniMax-M3-UD-IQ1_M-00002-of-00004.gguf",
+            "size_bytes": 49165334304,
+            "sha256": "fee0653b3aaaf3f41f0e15c297550995149c4a448b7c7b6d056a6cc227fee3bc"
+          },
+          {
+            "path": "UD-IQ1_M/MiniMax-M3-UD-IQ1_M-00003-of-00004.gguf",
+            "size_bytes": 49782135840,
+            "sha256": "c3253c3f5f7d99ab7a6855ce8d1ed870b3630e08cf509dc4606fb5bfdf447f36"
+          },
+          {
+            "path": "UD-IQ1_M/MiniMax-M3-UD-IQ1_M-00004-of-00004.gguf",
+            "size_bytes": 29461567904,
+            "sha256": "ac01e73d8d7e829f0627a7a82bb253725f15312f5fec0d00b98ae7e168baafbb"
+          }
+        ]
+      },
+      "certification": {
+        "profile": "full",
+        "execution": {
+          "trunk_layers": 60,
+          "mtp_layers": 0,
+          "activation_width": 6144,
+          "speculative_policy": "mtp-if-present"
+        },
+        "resources": {
+          "runner_role": "family-certify",
+          "cache_policy": "immutable-local",
+          "estimated_model_bytes": 128408977920
+        },
+        "notes": "MiniMax M3 MoE with three leading dense blocks and sparse-attention state",
+        "class": "causal_generation"
+      }
+    },
+    {
+      "id": "family-spark2-5",
+      "family": "spark2-5",
+      "suites": [
+        "llama-family-certification"
+      ],
+      "cadences": [
+        "llama-bump",
+        "manual-full"
+      ],
+      "capability_tags": [
+        "dense",
+        "gguf"
+      ],
+      "artifact": {
+        "repo": "XHToken/Spark-X2.5-4B-GGUF",
+        "revision": "d313463f1ff7dc29db20193fddc4ad8386d16261",
+        "selector": "Q4_K_M",
+        "files": [
+          {
+            "path": "Spark-X2.5-4B-Q4_K_M.gguf",
+            "size_bytes": 2600224352,
+            "sha256": "adfcfa19a4ed6a5985da8bf565fe15f8e1a7e131d79bae2d19d48d1c40109428"
+          }
+        ]
+      },
+      "certification": {
+        "profile": "full",
+        "execution": {
+          "trunk_layers": 36,
+          "mtp_layers": 0,
+          "activation_width": 2560,
+          "speculative_policy": "mtp-if-present"
+        },
+        "resources": {
+          "runner_role": "family-certify",
+          "cache_policy": "immutable-local",
+          "estimated_model_bytes": 2594836480
+        },
+        "notes": "Spark X2.5 dense mixed-window attention architecture coverage",
         "class": "causal_generation"
       }
     },
@@ -4015,7 +4103,8 @@
       ],
       "cadences": [
         "llama-bump",
-        "manual-full"
+        "manual-full",
+        "nightly"
       ],
       "capability_tags": [
         "gguf",
@@ -4036,15 +4125,10 @@
       "certification": {
         "class": "embedding",
         "profile": "workload-oracle",
-        "cadences": [
-          "llama-bump",
-          "manual-full"
-        ],
         "execution": {
           "trunk_layers": 12,
           "mtp_layers": 0,
           "activation_width": 768,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
@@ -4067,7 +4151,8 @@
       ],
       "cadences": [
         "llama-bump",
-        "manual-full"
+        "manual-full",
+        "nightly"
       ],
       "capability_tags": [
         "gguf",
@@ -4088,15 +4173,10 @@
       "certification": {
         "class": "rerank",
         "profile": "workload-oracle",
-        "cadences": [
-          "llama-bump",
-          "manual-full"
-        ],
         "execution": {
           "trunk_layers": 6,
           "mtp_layers": 0,
           "activation_width": 384,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
@@ -4119,7 +4199,8 @@
       ],
       "cadences": [
         "llama-bump",
-        "manual-full"
+        "manual-full",
+        "nightly"
       ],
       "capability_tags": [
         "gguf",
@@ -4140,15 +4221,10 @@
       "certification": {
         "class": "encoder_decoder",
         "profile": "workload-oracle",
-        "cadences": [
-          "llama-bump",
-          "manual-full"
-        ],
         "execution": {
           "trunk_layers": 8,
           "mtp_layers": 0,
           "activation_width": 512,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
@@ -4171,7 +4247,8 @@
       ],
       "cadences": [
         "llama-bump",
-        "manual-full"
+        "manual-full",
+        "nightly"
       ],
       "capability_tags": [
         "gguf",
@@ -4192,15 +4269,10 @@
       "certification": {
         "class": "ocr",
         "profile": "workload-oracle",
-        "cadences": [
-          "llama-bump",
-          "manual-full"
-        ],
         "execution": {
           "trunk_layers": 18,
           "mtp_layers": 0,
           "activation_width": 1024,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
@@ -4236,7 +4308,8 @@
       ],
       "cadences": [
         "llama-bump",
-        "manual-full"
+        "manual-full",
+        "nightly"
       ],
       "capability_tags": [
         "gguf",
@@ -4257,15 +4330,10 @@
       "certification": {
         "class": "speech_synthesis",
         "profile": "workload-oracle",
-        "cadences": [
-          "llama-bump",
-          "manual-full"
-        ],
         "execution": {
           "trunk_layers": 28,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {
@@ -4301,7 +4369,8 @@
       ],
       "cadences": [
         "llama-bump",
-        "manual-full"
+        "manual-full",
+        "nightly"
       ],
       "capability_tags": [
         "gguf",
@@ -4322,15 +4391,10 @@
       "certification": {
         "class": "speech_recognition",
         "profile": "workload-oracle",
-        "cadences": [
-          "llama-bump",
-          "manual-full"
-        ],
         "execution": {
           "trunk_layers": 16,
           "mtp_layers": 0,
           "activation_width": 2048,
-          "boundary_sweep_period": 0,
           "speculative_policy": "disabled"
         },
         "resources": {

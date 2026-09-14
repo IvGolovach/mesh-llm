@@ -154,6 +154,7 @@ class LlamaNativeFullReplayTests(unittest.TestCase):
             return [json.loads(line) for line in trace.read_text().splitlines()]
 
     def test_default_build_keeps_standard_and_private_tests_disabled(self) -> None:
+        """Normal product builds must not silently enable the expensive native certification suite."""
         trace = self.run_build(full_replay=False)
         configure = next(call for call in trace if call["args"][0] != "--build")
         build = next(call for call in trace if call["args"][0] == "--build")
@@ -167,6 +168,7 @@ class LlamaNativeFullReplayTests(unittest.TestCase):
         self.assertFalse(any(call["tool"] == "ctest" for call in trace))
 
     def test_full_replay_builds_and_runs_only_skippy_gates(self) -> None:
+        """Explicit full replay must build and execute every retained Skippy gate without upstream tests."""
         trace = self.run_build(full_replay=True)
         configure = next(call for call in trace if call["args"][0] != "--build")
         build = next(call for call in trace if call["args"][0] == "--build")
