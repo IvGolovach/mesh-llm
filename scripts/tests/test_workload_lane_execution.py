@@ -22,6 +22,37 @@ def shell_function(script: str, name: str) -> str:
 
 
 class WorkloadLaneExecutionTests(unittest.TestCase):
+    def test_summary_preserves_preflight_classes_without_claiming_certification(self) -> None:
+        """Use planned classes for preflight; environment checks have no model class."""
+        classes = ["causal_generation", "embedding", "rerank", "encoder_decoder",
+                   "ocr", "speech_synthesis", "speech_recognition"]
+        models = [{"family": f"family-{index}", "class": value}
+                  for index, value in enumerate(classes)]
+        outcome = {"name": "model-preflight", "status": "pass", "outcome": "pass", "exit_code": 0}
+        rows = [{"family": model["family"], "outcomes": [outcome]} for model in models]
+        rows.extend([
+            {"family": "battery", "outcomes": [{**outcome, "name": "environment-preflight"}]},
+            {"family": "family-0", "split_layer": 2, "outcomes": [{**outcome, "name": "chain"}]},
+            {"family": "explicit", "workload_class": "embedding",
+             "outcomes": [{**outcome, "name": "embedding-oracle"}]},
+        ])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            policy, results, summary = (root / name for name in ("plan.json", "results.jsonl", "summary.tsv"))
+            policy.write_text(json.dumps({"selected_models": models}))
+            source = "\n".join(json.dumps(row) for row in rows)
+            results.write_text(source)
+            env = {**os.environ, "POLICY_PLAN_COPY": str(policy),
+                   "RESULTS_JSONL": str(results), "SUMMARY_TSV": str(summary)}
+            script = "set -euo pipefail\n" + shell_function("skippy-family-battery.sh", "write_lane_summary")
+            result = subprocess.run(["bash", "-c", script + "\nwrite_lane_summary"], env=env,
+                                    capture_output=True, text=True, check=False, timeout=15)
+            self.assertEqual(0, result.returncode, result.stderr)
+            actual = [line.split("\t") for line in summary.read_text().splitlines()]
+            self.assertEqual(["family", "class", "split_layer", "lane", "status", "outcome", "exit_code"], actual[0])
+            self.assertEqual(classes + ["", "causal_generation", "embedding"], [row[1] for row in actual[1:]])
+            self.assertEqual(source, results.read_text(), "summary must not promote preflight rows to certifications")
+
     def run_lane(self, dry_run: bool) -> tuple[subprocess.CompletedProcess[str], list[dict]]:
         """Run an isolated battery function with deterministic producer and log fixtures."""
         with tempfile.TemporaryDirectory() as directory:

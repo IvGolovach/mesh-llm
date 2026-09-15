@@ -1007,6 +1007,17 @@ run_resolved_manifest() {
   done < "$resolved_manifest"
 }
 
+write_lane_summary() {
+  jq -sr --slurpfile policy "$POLICY_PLAN_COPY" '
+    def model_class($row):
+      $row.workload_class //
+      ([$policy[0].selected_models[] | select(.family == $row.family) | .class][0] // "");
+    ["family","class","split_layer","lane","status","outcome","exit_code"],
+    (.[] as $row | $row.outcomes[] | [$row.family,model_class($row),($row.split_layer // ""),.name,.status,.outcome,.exit_code])
+    | @tsv
+  ' "$RESULTS_JSONL" > "$SUMMARY_TSV"
+}
+
 build_certification_binaries
 if ! preflight_manifest "$POLICY_PLAN_COPY"; then
   echo "family battery preflight failed; no certification lane was started" >&2
@@ -1036,11 +1047,7 @@ fi
 
 echo
 if (( DRY_RUN == 0 )); then
-  jq -sr '
-    ["family","class","split_layer","lane","status","outcome","exit_code"],
-    (.[] as $row | $row.outcomes[] | [$row.family,($row.workload_class // "causal_generation"),($row.split_layer // ""),.name,.status,.outcome,.exit_code])
-    | @tsv
-  ' "$RESULTS_JSONL" > "$SUMMARY_TSV"
+  write_lane_summary
   {
     echo "# Supported-families battery"
     echo
