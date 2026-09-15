@@ -57,7 +57,7 @@ operator cancellation still preserves the available repair and verification
 logs without making publication or status-reporting steps resist cancellation.
 
 Scheduled, changed-pin, and forced certification runs consume the same full
-roster: 81 causal split targets and six non-chat workload rows. Cadence labels
+roster: 83 causal split targets and six non-chat workload rows. Cadence labels
 describe the trigger, not a model filter. Both ordinary and independently
 verified changed-pin canaries build a run-specific CPU oracle closure with
 `just skippy-workload-oracles-build`: pinned monolithic server/completion/TTS

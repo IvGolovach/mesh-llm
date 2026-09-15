@@ -82,7 +82,7 @@ planner, including GGUFs with non-finite metadata values. The workflow builds th
 certification binaries before the manifest lanes; the family battery builds
 its four required executables once unless `--skip-build` is selected, in which case it verifies
 that every binary already exists. Scheduled, changed-pin, and forced runs
-use the complete 81-target causal roster plus six non-chat workload rows.
+use the complete 83-target causal roster plus six non-chat workload rows.
 Both ordinary and independent changed-pin verification build a run-scoped
 CPU oracle closure with `just skippy-workload-oracles-build`. Generated
 `SKIPPY_WORKLOAD_*` paths select separate reference and candidate binaries

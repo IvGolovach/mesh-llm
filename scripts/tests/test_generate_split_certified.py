@@ -20,12 +20,13 @@ SPEC.loader.exec_module(GENERATOR)
 
 class SplitCertificationRosterTests(unittest.TestCase):
     def test_non_chat_workload_evidence_never_grants_split_admission(self) -> None:
-        """Only the 81 causal artifacts may enter the host's split admission roster."""
+        """Only the 83 causal artifacts may enter the host's split admission roster."""
         manifest = json.loads(GENERATOR.DEFAULT_MANIFEST.read_text())
         roster = GENERATOR.build_roster(manifest)
         causal = {model["family"] for model in manifest["models"]
                   if model["class"] == "causal_generation"}
-        self.assertEqual(81, len(causal))
+        self.assertEqual(83, len(causal))
+        self.assertTrue({"inkling", "llama4"}.issubset(causal))
         self.assertEqual(causal, {model["family"] for model in roster["models"]})
 
     def test_invalid_workload_class_or_profile_cannot_grant_split_admission(self) -> None:

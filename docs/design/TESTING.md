@@ -325,7 +325,7 @@ set `MESH_NIGHTLY_KV_COVERAGE_ENABLED=0` to disable the scheduled run. Manual
 dispatch still executes trusted `main` on GitHub-hosted infrastructure.
 
 The daily llama canary, pin advances, and explicit forced certification all
-use the complete `ci/llama-canary/family-certified.json` roster: 81 causal
+use the complete `ci/llama-canary/family-certified.json` roster: 83 causal
 split targets plus six non-chat workloads. Trigger labels do not filter model
 coverage. Causal rows use product-approved topology cuts; non-chat rows require
 class-specific smoke and independent CPU oracle evidence, never split proof.

@@ -42,8 +42,9 @@ pub use abi::{
     WorkloadInfoV1, WorkloadKind, WorkloadPooling, runtime_abi_supported,
 };
 pub use activation::{
-    ACTIVATION_FLAG_GEMMA3N_ALTUP, ACTIVATION_FLAG_INKLING_MTP_EMBD, ACTIVATION_SIDEBAND_TOKEN_IDS,
-    ActivationBoundaryDesc, ActivationDesc, LogitBias, TensorInfo,
+    ACTIVATION_FLAG_GEMMA3N_ALTUP, ACTIVATION_FLAG_GLM_DSA_TOP_K, ACTIVATION_FLAG_INKLING_MTP_EMBD,
+    ACTIVATION_FLAG_KIMI_K3_RESIDUAL, ACTIVATION_SIDEBAND_TOKEN_IDS, ActivationBoundaryDesc,
+    ActivationDesc, LogitBias, TensorInfo,
 };
 pub use model::{
     GgmlType, LlamaFileType, LlamaModelImatrixData, LlamaModelKvOverride, LlamaModelKvOverrideType,
