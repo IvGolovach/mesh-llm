@@ -544,17 +544,29 @@ class LlamaUpstreamCanaryWorkflowTests(unittest.TestCase):
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
-                assert wrapper.stdout is not None
-                child_pid = int(wrapper.stdout.readline())
-                wrapper.send_signal(received_signal)
-                _, stderr = wrapper.communicate(timeout=15)
+                child_pid = None
+                try:
+                    assert wrapper.stdout is not None
+                    child_pid = int(wrapper.stdout.readline())
+                    wrapper.send_signal(received_signal)
+                    _, stderr = wrapper.communicate(timeout=15)
 
-                self.assertEqual(128 + received_signal, wrapper.returncode)
-                self.assertIn(
-                    f"signal-fixture received signal {received_signal}", stderr
-                )
-                with self.assertRaises(ProcessLookupError):
-                    os.kill(child_pid, 0)
+                    self.assertEqual(128 + received_signal, wrapper.returncode)
+                    self.assertIn(
+                        f"signal-fixture received signal {received_signal}", stderr
+                    )
+                    with self.assertRaises(ProcessLookupError):
+                        os.kill(child_pid, 0)
+                finally:
+                    # A regression must not leave its fixture running on CI.
+                    if wrapper.poll() is None:
+                        wrapper.kill()
+                    if child_pid is not None:
+                        try:
+                            os.killpg(child_pid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+                    wrapper.communicate(timeout=5)
 
     def test_timeout_runner_closes_manifest_stdin_for_children(self) -> None:
         result = subprocess.run(
