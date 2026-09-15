@@ -94,18 +94,21 @@ index 357222c13..967a6b1ed 100644
              }
          }
      }
-@@ -370,9 +374,12 @@ static enum skippy_status skippy_prefill_chunk_frame_impl(
+@@ -370,9 +374,15 @@ static enum skippy_status skippy_prefill_chunk_frame_impl(
          return status;
      }
  
 -    if (out_predicted_token != nullptr) {
 -        *out_predicted_token = session->stage_model->config.include_output ?
 -                skippy_sample_token(session, sampling) : -1;
-+    if (out_predicted_token != nullptr && session->stage_model->config.include_output) {
-+        status = skippy_store_sampled_token(
-+                skippy_sample_token(session, sampling), out_predicted_token, out_error);
-+        if (status != SKIPPY_STATUS_OK) {
-+            return status;
++    if (out_predicted_token != nullptr) {
++        *out_predicted_token = -1;
++        if (session->stage_model->config.include_output) {
++            status = skippy_store_sampled_token(
++                    skippy_sample_token(session, sampling), out_predicted_token, out_error);
++            if (status != SKIPPY_STATUS_OK) {
++                return status;
++            }
 +        }
      }
  
