@@ -646,6 +646,7 @@ class SkippyFamilyBatteryTests(unittest.TestCase):
         return {
             "family": "test-family",
             "class": "causal_generation",
+            "architecture": "test",
             "profile": "full",
             "artifact": {
                 "repo": "org/model",

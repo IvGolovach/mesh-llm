@@ -23,6 +23,9 @@ class ModelArtifactRegistryTests(unittest.TestCase):
         schema = json.loads((ROOT / "ci/llama-canary/family-certified.schema.json").read_text())
         model_schema = schema["$defs"]["model"]
         self.assertIn("class", model_schema["required"])
+        self.assertIn("architecture", model_schema["required"])
+        for row in manifest["models"]:
+            self.assertRegex(row["architecture"], model_schema["properties"]["architecture"]["pattern"])
         self.assertEqual({row["class"] for row in manifest["models"]},
                          set(model_schema["properties"]["class"]["enum"]))
         self.assertEqual(set(manifest["policy"]["profiles"]),
@@ -142,6 +145,14 @@ class ModelArtifactRegistryTests(unittest.TestCase):
         ]
         self.assertEqual([row["family"] for row in family["models"]], expected)
         self.assertEqual(family["policy"], registry["family_policy"])
+        certifications = {
+            row["family"]: row["certification"]
+            for row in registry["artifacts"]
+            if "llama-family-certification" in row["suites"]
+        }
+        for model in family["models"]:
+            for field in ("class", "architecture"):
+                self.assertEqual(model[field], certifications[model["family"]][field])
 
     def test_opt_in_suite_configs_reference_registered_variants(self) -> None:
         manifests = {}

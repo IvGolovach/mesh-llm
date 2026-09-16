@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import struct
 import subprocess
@@ -19,7 +20,7 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
         path: Path,
         block_count: int | None,
         embedding_length: int | None = 1024,
-        architecture: str = "fixture",
+        architecture: str = "qwen3",
         hyper_connection_count: int | None = None,
         embedding_length_out: int | None = None,
     ) -> int:
@@ -62,7 +63,7 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
         artifact: dict[str, object],
         block_counts: list[int | None],
         embedding_length: int = 1024,
-        architecture: str = "fixture",
+        architecture: str = "qwen3",
         hyper_connection_count: int | None = None,
         embedding_length_out: int | None = None,
     ) -> list[Path]:
@@ -77,7 +78,8 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
         for index, (relative, block_count) in enumerate(
             zip(files, block_counts, strict=True)
         ):
-            blob_id = f"{index + 1:064x}"
+            # Target and projector fixtures may share a repository and snapshot.
+            blob_id = hashlib.sha256(f"{index}:{relative}".encode()).hexdigest()
             blob = repo_root / "blobs" / blob_id
             blob.parent.mkdir(parents=True, exist_ok=True)
             shard_width = embedding_length if block_count is not None else None
@@ -502,12 +504,87 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
         self.assertIn("plans activation width 1024", result.stderr)
         self.assertIn("declares 2048", result.stderr)
 
+    def test_cache_gate_rejects_architecture_drift_before_build(self) -> None:
+        source = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        source["models"] = [copy.deepcopy(source["models"][0])]
+        model = source["models"][0]
+        model["execution"]["trunk_layers"] = 3
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            manifest = root / "manifest.json"
+            self._materialize_cached_artifact(
+                root,
+                model["artifact"],
+                [3],
+                architecture="different",
+            )
+            manifest.write_text(json.dumps(source), encoding="utf-8")
+            result = self._run(
+                manifest,
+                "--check-cache",
+                "--cache-root",
+                str(root / "cache"),
+            )
+        self.assertEqual(2, result.returncode)
+        self.assertIn("is certified for architecture qwen3", result.stderr)
+        self.assertIn("declares different", result.stderr)
+
+    def test_non_chat_cache_gate_checks_architecture_without_changing_workload_lanes(self) -> None:
+        """Validate each non-chat target's architecture independently of its workload class."""
+        source = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        for row in source["models"]:
+            if row["class"] == "causal_generation":
+                continue
+            with (
+                self.subTest(family=row["family"]),
+                tempfile.TemporaryDirectory() as temp_dir,
+            ):
+                root = Path(temp_dir)
+                model = copy.deepcopy(row)
+                manifest = root / "manifest.json"
+                policy = {**source, "models": [model]}
+                self._materialize_cached_artifact(
+                    root,
+                    model["artifact"],
+                    [model["execution"]["trunk_layers"]],
+                    embedding_length=model["execution"]["activation_width"],
+                    architecture=model["architecture"],
+                )
+                if "mmproj_artifact" in model:
+                    self._materialize_cached_artifact(
+                        root, model["mmproj_artifact"], [None]
+                    )
+                manifest.write_text(json.dumps(policy), encoding="utf-8")
+                accepted = self._run(
+                    manifest, "--check-cache", "--cache-root", str(root / "cache")
+                )
+                self.assertEqual(0, accepted.returncode, accepted.stderr)
+                selected = json.loads(accepted.stdout)["selected_models"][0]
+                self.assertEqual(row["architecture"], selected["architecture"])
+                self.assertEqual(row["class"], selected["class"])
+                self.assertEqual(2, len(selected["certification_lanes"]))
+                self.assertTrue(
+                    all(
+                        "-smoke" in lane or "-oracle" in lane
+                        for lane in selected["certification_lanes"]
+                    )
+                )
+                model["architecture"] = "different"
+                manifest.write_text(json.dumps(policy), encoding="utf-8")
+                rejected = self._run(
+                    manifest, "--check-cache", "--cache-root", str(root / "cache")
+                )
+                self.assertEqual(2, rejected.returncode)
+                self.assertIn("is certified for architecture different", rejected.stderr)
+                self.assertIn(f"declares {row['architecture']}", rejected.stderr)
+
     def test_cache_gate_derives_qwen4exp_hyper_connected_activation_width(self) -> None:
         source = json.loads(MANIFEST.read_text(encoding="utf-8"))
         source["models"] = [copy.deepcopy(source["models"][0])]
         model = source["models"][0]
         model["execution"]["trunk_layers"] = 3
         model["execution"]["activation_width"] = 4096
+        model["architecture"] = "qwen4exp"
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             manifest = root / "manifest.json"
@@ -535,6 +612,7 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
         model = source["models"][0]
         model["execution"]["trunk_layers"] = 3
         model["execution"]["activation_width"] = 4096
+        model["architecture"] = "qwen4exp"
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             manifest = root / "manifest.json"
@@ -563,6 +641,7 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
         model = source["models"][0]
         model["execution"]["trunk_layers"] = 3
         model["execution"]["activation_width"] = 4096
+        model["architecture"] = "dflash"
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             manifest = root / "manifest.json"
@@ -589,6 +668,7 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
         model = source["models"][0]
         model["execution"]["trunk_layers"] = 3
         model["execution"]["activation_width"] = 4096
+        model["architecture"] = "qwen4exp"
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             manifest = root / "manifest.json"
@@ -615,6 +695,7 @@ class FamilyBatteryPlannerTests(unittest.TestCase):
         model = source["models"][0]
         model["execution"]["trunk_layers"] = 3
         model["execution"]["activation_width"] = 0x80000000
+        model["architecture"] = "qwen4exp"
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             manifest = root / "manifest.json"

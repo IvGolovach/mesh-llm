@@ -89,6 +89,7 @@
       "required": [
         "family",
         "class",
+        "architecture",
         "profile",
         "artifact",
         "execution",
@@ -98,6 +99,7 @@
       "properties": {
         "family": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
         "class": {"enum": ["causal_generation", "embedding", "rerank", "encoder_decoder", "ocr", "speech_synthesis", "speech_recognition"]},
+        "architecture": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
         "profile": {"enum": ["full", "package-oracle", "graph-only", "workload-smoke", "workload-oracle"]},
         "evidence": {
           "type": "object",

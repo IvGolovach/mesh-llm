@@ -20,14 +20,28 @@ SPEC.loader.exec_module(GENERATOR)
 
 class SplitCertificationRosterTests(unittest.TestCase):
     def test_non_chat_workload_evidence_never_grants_split_admission(self) -> None:
-        """Only the 83 causal artifacts may enter the host's split admission roster."""
+        """Only architectures backed by causal split evidence enter the roster."""
         manifest = json.loads(GENERATOR.DEFAULT_MANIFEST.read_text())
         roster = GENERATOR.build_roster(manifest)
-        causal = {model["family"] for model in manifest["models"]
-                  if model["class"] == "causal_generation"}
+        causal = [model for model in manifest["models"]
+                  if model["class"] == "causal_generation"]
         self.assertEqual(83, len(causal))
-        self.assertTrue({"inkling", "llama4"}.issubset(causal))
-        self.assertEqual(causal, {model["family"] for model in roster["models"]})
+        self.assertEqual(
+            {model["architecture"] for model in causal}, set(roster["architectures"])
+        )
+        for model in manifest["models"]:
+            if model["class"] != "causal_generation":
+                model["architecture"] = f"non-chat-{model['class']}"
+        self.assertEqual(roster, GENERATOR.build_roster(manifest))
+
+    def test_workload_evidence_cannot_supply_the_only_split_architecture(self) -> None:
+        """A shared architecture label does not promote non-chat evidence to split evidence."""
+        manifest = json.loads(GENERATOR.DEFAULT_MANIFEST.read_text())
+        manifest["models"] = [model for model in manifest["models"]
+                              if model["class"] == "speech_recognition"]
+        self.assertEqual("llama", manifest["models"][0]["architecture"])
+        with self.assertRaisesRegex(GENERATOR.RosterError, "no split-certified architectures"):
+            GENERATOR.build_roster(manifest)
 
     def test_invalid_workload_class_or_profile_cannot_grant_split_admission(self) -> None:
         """Fail closed on absent classes or non-chat rows mislabeled as split-certified."""
@@ -40,36 +54,14 @@ class SplitCertificationRosterTests(unittest.TestCase):
                 with self.assertRaises(GENERATOR.RosterError):
                     GENERATOR.build_roster(manifest)
 
-    def test_single_file_identity_is_exact_blob_digest(self) -> None:
-        digest = "a" * 64
-        self.assertEqual(
-            digest,
-            GENERATOR.aggregate_source_sha256(
-                ["model.gguf"],
-                {"model.gguf": {"size_bytes": 42, "blob_id": digest}},
-            ),
-        )
-
-    def test_multi_file_identity_is_ordered_and_path_independent(self) -> None:
-        integrity = {
-            "one.gguf": {"size_bytes": 10, "blob_id": "a" * 64},
-            "two.gguf": {"size_bytes": 20, "blob_id": "b" * 64},
-        }
-        first = GENERATOR.aggregate_source_sha256(
-            ["one.gguf", "two.gguf"], integrity
-        )
-        relocated = GENERATOR.aggregate_source_sha256(
-            ["nested/one.gguf", "nested/two.gguf"],
-            {
-                "nested/one.gguf": integrity["one.gguf"],
-                "nested/two.gguf": integrity["two.gguf"],
-            },
-        )
-        reversed_digest = GENERATOR.aggregate_source_sha256(
-            ["two.gguf", "one.gguf"], integrity
-        )
-        self.assertEqual(first, relocated)
-        self.assertNotEqual(first, reversed_digest)
+    def test_roster_contains_unique_tested_architectures(self) -> None:
+        """Keep the versioned architecture roster sorted, unique and artifact-independent."""
+        manifest = json.loads(GENERATOR.DEFAULT_MANIFEST.read_text(encoding="utf-8"))
+        roster = GENERATOR.build_roster(manifest)
+        self.assertEqual(2, roster["schema_version"])
+        self.assertEqual(sorted(set(roster["architectures"])), roster["architectures"])
+        self.assertIn("inkling", roster["architectures"])
+        self.assertNotIn("models", roster)
 
     def test_checked_in_roster_is_deterministic_and_current(self) -> None:
         result = subprocess.run(

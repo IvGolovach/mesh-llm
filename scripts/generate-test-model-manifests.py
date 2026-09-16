@@ -182,7 +182,17 @@ def _validate_registry(raw: Any) -> dict[str, Any]:
             certification = _object(row.get("certification"), f"{field}.certification")
             _exact_keys(
                 certification,
-                {"class", "profile", "execution", "resources", "notes", "evidence", "draft_artifact", "mmproj_artifact"},
+                {
+                    "class",
+                    "architecture",
+                    "profile",
+                    "execution",
+                    "resources",
+                    "notes",
+                    "evidence",
+                    "draft_artifact",
+                    "mmproj_artifact",
+                },
                 f"{field}.certification",
             )
             workload_class = _string(
@@ -190,6 +200,14 @@ def _validate_registry(raw: Any) -> dict[str, Any]:
             )
             if workload_class not in FAMILY_WORKLOAD_CLASSES:
                 raise RegistryError(f"{field}.certification.class is not a workload class")
+            architecture = _string(
+                certification.get("architecture"),
+                f"{field}.certification.architecture",
+            )
+            if not ID_RE.fullmatch(architecture):
+                raise RegistryError(
+                    f"{field}.certification.architecture has invalid characters"
+                )
             profile = _string(certification.get("profile"), f"{field}.certification.profile")
             if profile not in profiles:
                 raise RegistryError(f"{field}.certification.profile is not a family profile")
@@ -244,6 +262,7 @@ def _family_manifest(registry: dict[str, Any]) -> dict[str, Any]:
         model: dict[str, Any] = {
             "family": row["family"],
             "class": certification["class"],
+            "architecture": certification["architecture"],
             "profile": certification["profile"],
             "artifact": _family_artifact(row["artifact"]),
         }
@@ -330,6 +349,7 @@ def _dump_family(value: dict[str, Any]) -> bytes:
                 "    {",
                 f'      "family": {compact(model["family"])},',
                 f'      "class": {compact(model["class"])},',
+                f'      "architecture": {compact(model["architecture"])},',
                 f'      "profile": {compact(model["profile"])},',
                 f'      "artifact": {compact(model["artifact"])},',
             ]

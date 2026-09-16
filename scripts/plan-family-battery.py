@@ -99,7 +99,7 @@ class _GgufReader:
         raise PlanError(f"unsupported GGUF metadata type {kind}: {self.path}")
 
 
-def _gguf_dimensions(path: Path) -> tuple[int, int] | None:
+def _gguf_dimensions(path: Path) -> tuple[str, int, int] | None:
     reader = _GgufReader(path)
     try:
         if reader.read(4) != b"GGUF":
@@ -129,6 +129,8 @@ def _gguf_dimensions(path: Path) -> tuple[int, int] | None:
                 embedding_lengths_out.append(value)
         if not block_counts and not embedding_lengths:
             return None
+        if architecture is None or not FAMILY_RE.fullmatch(architecture):
+            raise PlanError(f"GGUF must contain a valid general.architecture: {path}")
         if len(block_counts) != 1 or block_counts[0] < 1:
             raise PlanError(f"GGUF must contain exactly one positive *.block_count: {path}")
         if len(embedding_lengths) != 1 or embedding_lengths[0] < 1:
@@ -154,7 +156,7 @@ def _gguf_dimensions(path: Path) -> tuple[int, int] | None:
                     f"{architecture} *.embedding_length_out disagrees with "
                     f"hyper-connected activation width {activation_width}: {path}"
                 )
-        return block_counts[0], activation_width
+        return architecture, block_counts[0], activation_width
     finally:
         reader.close()
 
@@ -349,6 +351,7 @@ def _normalize_models(value: object, policy: dict[str, Any]) -> list[dict[str, A
             {
                 "family",
                 "class",
+                "architecture",
                 "profile",
                 "artifact",
                 "draft_artifact",
@@ -371,6 +374,11 @@ def _normalize_models(value: object, policy: dict[str, Any]) -> list[dict[str, A
             f"{field}.class",
             tuple(MODEL_CLASS_LANES),
         )
+        architecture = _string(model.get("architecture"), f"{field}.architecture")
+        if not FAMILY_RE.fullmatch(architecture):
+            raise PlanError(
+                f"{field}.architecture has an invalid label: {architecture!r}"
+            )
         profile = _enum(model.get("profile"), f"{field}.profile", PROFILE_NAMES)
         if model_class != "causal_generation" and profile not in ("workload-smoke", "workload-oracle"):
             raise PlanError(
@@ -483,6 +491,7 @@ def _normalize_models(value: object, policy: dict[str, Any]) -> list[dict[str, A
             {
                 "family": family,
                 "class": model_class,
+                "architecture": architecture,
                 "profile": profile,
                 "certification_status": profile_policy["status"],
                 "oracle": profile_policy["oracle"],
@@ -613,9 +622,15 @@ def _verify_cache(models: list[dict[str, Any]], cache_root: Path) -> None:
                 if dimensions is None:
                     continue
                 found_dimensions = True
-                block_count, embedding_length = dimensions
+                architecture, block_count, embedding_length = dimensions
                 if kind != "target":
                     continue
+                if architecture != model["architecture"]:
+                    raise PlanError(
+                        f"{model['family']} is certified for architecture "
+                        f"{model['architecture']} but immutable GGUF metadata in "
+                        f"{target.name} declares {architecture}"
+                    )
                 planned = model["execution"]["layer_end"]
                 if block_count != planned:
                     raise PlanError(
@@ -719,7 +734,7 @@ def main(argv: list[str] | None = None) -> int:
             raise PlanError(
                 f"GGUF has no positive *.block_count and *.embedding_length metadata: {args.inspect_gguf}"
             )
-        layer_count, activation_width = dimensions
+        _architecture, layer_count, activation_width = dimensions
         sys.stdout.write(
             json.dumps(
                 {
