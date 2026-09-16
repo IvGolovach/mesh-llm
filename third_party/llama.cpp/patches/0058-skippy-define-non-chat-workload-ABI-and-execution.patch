@@ -38,8 +38,8 @@ index 22a116414..336985cb5 100644
  
  #define SKIPPY_ABI_VERSION_MAJOR 0
  #define SKIPPY_ABI_VERSION_MINOR 1
--#define SKIPPY_ABI_VERSION_PATCH 54
-+#define SKIPPY_ABI_VERSION_PATCH 55
+-#define SKIPPY_ABI_VERSION_PATCH 57
++#define SKIPPY_ABI_VERSION_PATCH 58
  
  #if defined(_MSC_VER)
  #define SKIPPY_DEPRECATED(message) __declspec(deprecated(message))
