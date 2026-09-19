@@ -427,7 +427,7 @@ pub(crate) fn reject_unsupported_staged_workload(
     config: &StageConfig,
     model: &StageModel,
 ) -> Result<()> {
-    if !config.filter_tensors_on_load {
+    if !config.filter_tensors_on_load || model.is_dummy() {
         return Ok(());
     }
     if model.supports_speech_synthesis() {
@@ -615,6 +615,25 @@ mod tests {
         max_idle_sessions_from_stage_config, reject_legacy_serving_package,
         runtime_config_from_stage_config,
     };
+
+    /// Model-load bypass must not query native metadata through its absent handle.
+    #[test]
+    fn filtered_dummy_model_retains_runtime_load_bypass() {
+        let config = StageConfig {
+            filter_tensors_on_load: true,
+            lane_count: 2,
+            ..Default::default()
+        };
+        let runtime = super::runtime_from_loaded_model(
+            &config,
+            skippy_runtime::StageModel::new_dummy(),
+            None,
+        )
+        .unwrap();
+        let runtime = runtime.lock().unwrap();
+        assert!(runtime.model.is_dummy());
+        assert_eq!(runtime.lane_count(), 2);
+    }
 
     #[test]
     fn modelless_runtime_reports_zero_kv_pool_so_scheduler_uses_fallback() {

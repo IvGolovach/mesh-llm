@@ -12,6 +12,59 @@ RUNNER = ROOT / "scripts" / "skippy-workload-certify.sh"
 
 
 class WorkloadCertifyContractTests(unittest.TestCase):
+    def test_cpu_candidate_stamp_is_checked_after_build_without_weakening_reuse(self) -> None:
+        """Fresh builds may create their stamp; stale or unbound reused outputs cannot pass."""
+        source = RUNNER.read_text(encoding="utf-8")
+        check = "require_pinned_cpu_candidate() {" + source.split("require_pinned_cpu_candidate() {", 1)[1].split('if [[ -n "$ORACLE_SERVER" ]]', 1)[0]
+        build = source.split("# The canary explicitly produces", 1)[1].split('MEDIA_PATH=""', 1)[0]
+        build = build[build.index('if [[ -n "$PRODUCER_MANIFEST" ]]'):]
+        for initial, built, skip, manifest, expected in (
+            ("", "current", 0, "", 0),
+            ("stale", "current", 0, "", 0),
+            ("", "stale", 0, "", 1),
+            ("", "metal", 0, "", 1),
+            ("current", "current", 1, "", 1),
+            ("current", "current", 1, "manifest", 0),
+            ("stale", "current", 1, "manifest", 1),
+        ):
+            with self.subTest(initial=initial, built=built, skip=skip, manifest=manifest):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    fixture = r'''
+set -euo pipefail
+ROOT=repo CANDIDATE_BIN_DIR=bin ORACLE_SERVER=oracle ORACLE_COMPLETION= ORACLE_TTS=
+TEST_COMMAND=(test)
+write_stamp() {
+  printf 'patched-sha=%s\nbackend=%s\nlink-mode=static\ncmake-arg=-DGGML_METAL=OFF\n' \
+    "$1" "$2" > "$CANDIDATE_BUILD_DIR/.mesh-llm-build-stamp"
+}
+python3() {
+  case "$1" in
+    */llama-oracle-source.py) echo current ;;
+    */check-skippy-workload-candidate.py) echo checked ;;
+    *) return 99 ;;
+  esac
+}
+jq() { echo prebuilt-test; }
+cargo() {
+  echo built
+  if [[ "$built" == metal ]]; then write_stamp current metal; else write_stamp "$built" cpu; fi
+}
+if [[ -n "$initial" ]]; then write_stamp "$initial" cpu; fi
+'''
+                    result = subprocess.run(
+                        ["bash", "-c", fixture + check + build], text=True, capture_output=True, check=False,
+                        env={**os.environ, "CANDIDATE_BUILD_DIR": temp_dir, "initial": initial, "built": built,
+                             "SKIP_BUILD": str(skip), "PRODUCER_MANIFEST": manifest},
+                    )
+                self.assertEqual(expected, result.returncode, result.stdout + result.stderr)
+                self.assertEqual(not skip, "built" in result.stdout)
+                if not skip and expected == 0:
+                    self.assertLess(result.stdout.index("built"), result.stdout.index("checked"))
+                if skip and not manifest:
+                    self.assertIn("requires a source-bound", result.stderr)
+                elif expected:
+                    self.assertIn("current pinned CPU llama.cpp build stamp", result.stderr)
+
     def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
         """Invoke the certification wrapper and retain its status and diagnostics for assertions."""
         return subprocess.run(

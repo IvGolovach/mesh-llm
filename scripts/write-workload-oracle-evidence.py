@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 import sys
 
+from tts_oracle_metrics import validate_tts_metrics
+
 
 def sha256(path: Path) -> str:
     """Hash a model sidecar or executable without buffering the whole artifact."""
@@ -50,8 +52,7 @@ def write_evidence(args: argparse.Namespace) -> None:
         result = json.loads((args.work_dir / "tts-oracle-result.json").read_text(encoding="utf-8"))
         if result.get("status") != "pass" or result.get("pinned_patch_sha") != args.pinned_patch_sha:
             raise ValueError("TTS comparator result is missing or does not match the pinned patch")
-        if not isinstance(result.get("metrics"), dict):
-            raise ValueError("TTS comparator result lacks PCM metrics")
+        validate_tts_metrics(result.get("metrics"))
         evidence["metrics"] = result["metrics"]
     args.output.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 

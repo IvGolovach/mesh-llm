@@ -148,8 +148,10 @@ def compare_rerank(candidate: dict, reference: dict) -> str:
         abs(candidate_scores[index] - reference_scores[index])
         for index in range(len(RERANK_DOCUMENTS))
     )
-    candidate_order = sorted(candidate_scores, key=lambda index: -candidate_scores[index])
-    reference_order = sorted(reference_scores, key=lambda index: -reference_scores[index])
+    # Dictionaries retain the wire row order validated by indexed_scores.
+    # Sorting here would conceal a response-order bug behind correct scores.
+    candidate_order = list(candidate_scores)
+    reference_order = list(reference_scores)
     if candidate_order != reference_order or max_delta > RERANK_MAX_ABS_DELTA:
         raise RuntimeError(
             "rerank differs from monolithic reference: "

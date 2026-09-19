@@ -20,6 +20,8 @@ import subprocess
 import sys
 import wave
 
+from tts_oracle_metrics import MAX_RELATIVE_RMS_ERROR, MIN_WAVEFORM_COSINE, validate_tts_metrics
+
 
 ROOT = Path(__file__).resolve().parents[1]
 PROMPT = "The mesh is ready."
@@ -30,8 +32,6 @@ TOP_P = 0.8
 # identically truncated clips and is now rejected by the candidate runtime.
 MAX_FRAMES = 512
 CONTEXT_SIZE = 2048
-MAX_RELATIVE_RMS_ERROR = 0.02
-MIN_WAVEFORM_COSINE = 0.9995
 TEST_NAME = "frontend::tests::tts_oracle::deterministic_tts_candidate_when_fixture_is_set"
 
 
@@ -143,7 +143,7 @@ def compare_wavs(candidate_path: Path, oracle_path: Path) -> dict[str, float | i
         float(left) * right for left, right in zip(candidate, oracle, strict=True)
     )
     relative_rms_error = math.sqrt(delta_energy / oracle_energy)
-    waveform_cosine = dot / math.sqrt(candidate_energy * oracle_energy)
+    waveform_cosine = max(-1.0, min(1.0, dot / math.sqrt(candidate_energy * oracle_energy)))
     metrics: dict[str, float | int] = {
         "sample_rate_hz": candidate_rate,
         "channels": candidate_channels,
@@ -151,11 +151,13 @@ def compare_wavs(candidate_path: Path, oracle_path: Path) -> dict[str, float | i
         "relative_rms_error": relative_rms_error,
         "waveform_cosine": waveform_cosine,
     }
-    if relative_rms_error > MAX_RELATIVE_RMS_ERROR or waveform_cosine < MIN_WAVEFORM_COSINE:
+    try:
+        validate_tts_metrics(metrics)
+    except ValueError as error:
         raise RuntimeError(
             "TTS PCM differs from monolithic oracle: "
             f"relative_rms_error={relative_rms_error:.7g}, waveform_cosine={waveform_cosine:.8g}"
-        )
+        ) from error
     return metrics
 
 

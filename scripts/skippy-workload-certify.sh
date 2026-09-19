@@ -92,22 +92,12 @@ PRODUCER_MANIFEST="${SKIPPY_WORKLOAD_PRODUCER_MANIFEST:-}"
 TEST_COMMAND=(cargo test --manifest-path "$ROOT/Cargo.toml" -p skippy-server --lib)
 require_pinned_cpu_oracle() {
   local executable="$1" expected_name="$2" cmake_option="$3"
-  local build_dir stamp candidate_build_dir candidate_stamp patched_sha
+  local build_dir stamp patched_sha
   if [[ ! -x "$executable" ]]; then
     echo "oracle executable is not executable: $executable" >&2
     return 1
   fi
   patched_sha="$(python3 "$ROOT/scripts/llama-oracle-source.py")" || return 1
-  candidate_build_dir="$CANDIDATE_BUILD_DIR"
-  candidate_stamp="$candidate_build_dir/.mesh-llm-build-stamp"
-  if [[ ! -f "$candidate_stamp" ]] ||
-     ! grep -Fxq "patched-sha=$patched_sha" "$candidate_stamp" ||
-     ! grep -Fxq 'backend=cpu' "$candidate_stamp" ||
-     ! grep -Fxq 'link-mode=static' "$candidate_stamp" ||
-     ! grep -Fxq 'cmake-arg=-DGGML_METAL=OFF' "$candidate_stamp"; then
-    echo "candidate static ABI lacks the current pinned CPU llama.cpp build stamp" >&2
-    return 1
-  fi
   build_dir="$(cd "$(dirname "$executable")/.." && pwd -P)"
   stamp="$build_dir/.mesh-llm-build-stamp"
   if [[ "$(basename "$executable")" != "$expected_name" ]] ||
@@ -117,6 +107,18 @@ require_pinned_cpu_oracle() {
      ! grep -Fxq 'cmake-arg=-DGGML_METAL=OFF' "$stamp" ||
      ! grep -Fxq "$cmake_option" "$stamp"; then
     echo "oracle executable lacks the current pinned CPU llama.cpp build stamp" >&2
+    return 1
+  fi
+}
+require_pinned_cpu_candidate() {
+  local stamp="$CANDIDATE_BUILD_DIR/.mesh-llm-build-stamp" patched_sha
+  patched_sha="$(python3 "$ROOT/scripts/llama-oracle-source.py")" || return 1
+  if [[ ! -f "$stamp" ]] ||
+     ! grep -Fxq "patched-sha=$patched_sha" "$stamp" ||
+     ! grep -Fxq 'backend=cpu' "$stamp" ||
+     ! grep -Fxq 'link-mode=static' "$stamp" ||
+     ! grep -Fxq 'cmake-arg=-DGGML_METAL=OFF' "$stamp"; then
+    echo "candidate static ABI lacks the current pinned CPU llama.cpp build stamp" >&2
     return 1
   fi
 }
@@ -187,6 +189,7 @@ elif [[ -n "$ORACLE_SERVER" || -n "$ORACLE_COMPLETION" || -n "$ORACLE_TTS" ]]; t
   exit 1
 fi
 if [[ -n "$ORACLE_SERVER" || -n "$ORACLE_COMPLETION" || -n "$ORACLE_TTS" ]]; then
+  require_pinned_cpu_candidate
   python3 "$ROOT/scripts/check-skippy-workload-candidate.py" \
     --candidate-binary "$CANDIDATE_BIN_DIR/skippy-server" \
     --native-build-dir "$CANDIDATE_BUILD_DIR"

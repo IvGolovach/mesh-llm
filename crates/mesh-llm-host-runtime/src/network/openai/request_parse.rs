@@ -1,7 +1,7 @@
 pub(super) use super::model_names::public_model_id;
 use crate::mesh;
 use crate::plugin;
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use mesh_llm_events::logging::identifiers::RequestId;
 use serde::Deserialize;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -14,7 +14,9 @@ use super::routing_rank::descriptor_for_model;
 mod audio_multipart;
 use audio_multipart::multipart_model_field;
 mod body_rewrite;
+mod chunked;
 pub use body_rewrite::{inject_mesh_hooks_flag, rewrite_model_field};
+use chunked::{ChunkedDecoder, try_decode_chunked_body};
 
 pub(crate) const MAX_HEADER_BYTES: usize = 64 * 1024;
 /// Private lifecycle ownership assertion used only on trusted mesh forwarding.
@@ -455,12 +457,11 @@ where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     let mut sent_continue = false;
+    let mut decoder = ChunkedDecoder::new(body_limits.max_body_bytes);
     loop {
-        if let Some((consumed, decoded)) =
-            try_decode_chunked_body(&raw[header_end..], body_limits.max_body_bytes)?
-        {
+        if let Some(consumed) = decoder.decode(&raw[header_end..])? {
             raw.truncate(header_end + consumed);
-            return Ok(decoded);
+            return Ok(decoder.into_body());
         }
         if !sent_continue && parsed.expects_continue {
             stream.write_all(b"HTTP/1.1 100 Continue\r\n\r\n").await?;
@@ -708,7 +709,14 @@ where
                             .split(',')
                             .any(|part| part.trim().eq_ignore_ascii_case("100-continue"));
                     } else if header.name.eq_ignore_ascii_case("content-type") {
-                        content_type = std::str::from_utf8(header.value).ok().map(str::to_string);
+                        if content_type.is_some() {
+                            bail!("duplicate Content-Type header");
+                        }
+                        content_type = Some(
+                            std::str::from_utf8(header.value)
+                                .context("invalid Content-Type header")?
+                                .to_string(),
+                        );
                     } else if header.name.eq_ignore_ascii_case("x-correlation-id")
                         || header.name.eq_ignore_ascii_case("x-request-id")
                         || header.name.eq_ignore_ascii_case("correlation-id")
@@ -926,54 +934,6 @@ async fn read_more<S: AsyncRead + Unpin>(stream: &mut S, buf: &mut Vec<u8>) -> R
     }
     buf.extend_from_slice(&chunk[..n]);
     Ok(())
-}
-
-fn try_decode_chunked_body(buf: &[u8], max_body_bytes: usize) -> Result<Option<(usize, Vec<u8>)>> {
-    let mut pos = 0usize;
-    let mut decoded = Vec::new();
-
-    loop {
-        let Some(line_end_rel) = buf[pos..].windows(2).position(|window| window == b"\r\n") else {
-            return Ok(None);
-        };
-        let line_end = pos + line_end_rel;
-        let size_line = std::str::from_utf8(&buf[pos..line_end]).context("invalid chunk header")?;
-        let size_text = size_line.split(';').next().unwrap_or("").trim();
-        let size = usize::from_str_radix(size_text, 16)
-            .with_context(|| format!("invalid chunk size: {size_text}"))?;
-        pos = line_end + 2;
-
-        if size == 0 {
-            if buf.len() < pos + 2 {
-                return Ok(None);
-            }
-            if &buf[pos..pos + 2] == b"\r\n" {
-                return Ok(Some((pos + 2, decoded)));
-            }
-            let Some(trailer_end_rel) = buf[pos..]
-                .windows(4)
-                .position(|window| window == b"\r\n\r\n")
-            else {
-                return Ok(None);
-            };
-            return Ok(Some((pos + trailer_end_rel + 4, decoded)));
-        }
-
-        if buf.len() < pos + size + 2 {
-            return Ok(None);
-        }
-        decoded.extend_from_slice(&buf[pos..pos + size]);
-        pos += size;
-
-        if &buf[pos..pos + 2] != b"\r\n" {
-            return Err(anyhow!("invalid chunk terminator"));
-        }
-        pos += 2;
-
-        if decoded.len() > max_body_bytes {
-            bail!("HTTP chunked body exceeds {max_body_bytes} bytes");
-        }
-    }
 }
 
 fn request_requires_json_transform(path: &str, body: &[u8], plugin_manager_present: bool) -> bool {

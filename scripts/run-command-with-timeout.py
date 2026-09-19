@@ -41,10 +41,12 @@ def terminate_group(process: subprocess.Popen[bytes]) -> None:
 
 
 def main() -> int:
+    """Supervise one process group, preserving completed status and bounded cancellation."""
     args = parse_args()
     received_signal: int | None = None
 
     def request_termination(signum: int, _frame: object) -> None:
+        """Record the first signal without reentering process construction or wait locks."""
         # A handler can interrupt Popen construction or wait's internal lock.
         # Only record intent here; never wait, print, or clean up reentrantly.
         nonlocal received_signal
@@ -67,6 +69,9 @@ def main() -> int:
         while received_signal is None:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
+                returncode = process.poll()
+                if returncode is not None:
+                    return returncode
                 print(
                     f"{args.label} timed out after {args.seconds}s; terminating process group",
                     file=sys.stderr,

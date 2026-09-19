@@ -196,6 +196,7 @@ mod tests {
         GGML_TYPE_F32, MediaPrefillChunkFrame,
     };
 
+    /// Build identity-tagged activation planes with independently controllable descriptors.
     fn chunk(token_count: usize, parts: &[(u8, u32, Vec<u8>)]) -> MediaPrefillChunkFrame {
         let mut payload = Vec::new();
         let mut descriptors = [ActivationPartDesc::default(); ACTIVATION_MAX_PARTS];
@@ -235,11 +236,13 @@ mod tests {
         }
     }
 
+    /// An absent native output must not become an apparently valid activation frame.
     #[test]
     fn aggregation_rejects_empty_output() {
         assert!(aggregate_media_chunk_outputs(&[]).is_err());
     }
 
+    /// Chunks from different producer stages cannot form one downstream activation.
     #[test]
     fn aggregation_rejects_different_stage_descriptors() {
         let first = chunk(1, &[(1, 0, vec![1, 2, 3, 4])]);
@@ -253,6 +256,7 @@ mod tests {
         );
     }
 
+    /// Matching dimensions do not make distinct model frontiers interchangeable.
     #[test]
     fn aggregation_rejects_different_frontier_identities() {
         let first = chunk(1, &[(1, 0, vec![1, 2, 3, 4])]);
@@ -266,6 +270,7 @@ mod tests {
         );
     }
 
+    /// Required planes must cover every chunk regardless of which chunk introduces them.
     #[test]
     fn required_parts_cannot_disappear_between_chunks() {
         let first = chunk(1, &[(1, 0, vec![1, 2, 3, 4])]);
@@ -280,6 +285,7 @@ mod tests {
         }
     }
 
+    /// The wrapper token count must agree with its native activation descriptor.
     #[test]
     fn aggregation_rejects_inconsistent_chunk_token_count() {
         let mut invalid = chunk(1, &[(1, 0, vec![1, 2, 3, 4])]);
@@ -288,6 +294,7 @@ mod tests {
         assert!(error.to_string().contains("token count does not match"));
     }
 
+    /// Invalid plane offsets are rejected before copying activation bytes.
     #[test]
     fn aggregation_rejects_parts_outside_the_payload() {
         let mut invalid = chunk(1, &[(1, 0, vec![1, 2, 3, 4])]);
@@ -296,6 +303,7 @@ mod tests {
         assert!(error.to_string().contains("exceeds its payload"));
     }
 
+    /// Omit optional planes with incomplete token coverage instead of padding invented bytes.
     #[test]
     fn optional_part_in_first_chunk_is_dropped_when_absent_later() -> anyhow::Result<()> {
         let chunks = [
@@ -315,6 +323,7 @@ mod tests {
         Ok(())
     }
 
+    /// Plane identity, not descriptor position, determines cross-chunk concatenation.
     #[test]
     fn part_order_does_not_change_identity_based_aggregation() -> anyhow::Result<()> {
         let chunks = [
@@ -331,6 +340,7 @@ mod tests {
         Ok(())
     }
 
+    /// Mixed text/media output retains only the shared hidden plane in original token order.
     #[test]
     fn mixed_inkling_chunks_aggregate_the_common_hidden_plane() -> anyhow::Result<()> {
         let chunks = vec![
@@ -357,6 +367,7 @@ mod tests {
         Ok(())
     }
 
+    /// Uniform multimodal chunks retain every fully covered plane and its payload offsets.
     #[test]
     fn uniform_inkling_chunks_aggregate_each_plane_in_token_order() -> anyhow::Result<()> {
         let chunks = vec![

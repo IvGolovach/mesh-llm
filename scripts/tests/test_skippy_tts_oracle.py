@@ -19,7 +19,8 @@ SCRIPT = ROOT / "scripts" / "skippy-tts-oracle.py"
 SPEC = importlib.util.spec_from_file_location("skippy_tts_oracle", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 oracle = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(oracle)
+with mock.patch.object(sys, "path", [str(SCRIPT.parent), *sys.path]):
+    SPEC.loader.exec_module(oracle)
 
 
 def write_wav(path: Path, samples: list[int], *, rate: int = 8000) -> None:

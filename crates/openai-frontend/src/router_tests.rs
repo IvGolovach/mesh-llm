@@ -13,6 +13,7 @@ use tower::ServiceExt;
 use uuid::Uuid;
 
 use super::*;
+use crate::AudioTranscriptionRequest;
 
 /// A valid UUIDv4 the frontend will now accept and forward verbatim.
 const CLIENT_NONCE: &str = "6d7d8d2e-3f4a-4b5c-8d9e-0a1b2c3d4e5f";
