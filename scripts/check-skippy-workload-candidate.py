@@ -52,31 +52,43 @@ def producer_files(binary: Path, build_dir: Path, test_binary: Path) -> dict[str
 
 
 def write_producer(output: Path, binary: Path, build_dir: Path, test_binary: Path, source_snapshot: Path) -> None:
-    """Write evidence only if source stayed unchanged throughout the producer build."""
+    """Write evidence only if source stayed unchanged throughout the producer build.
+
+    Recorded paths are relative to the manifest's own directory so the closure
+    stays relocatable: the canary handoff restores it on family workers at a
+    different absolute path and every record must still resolve and hash-match.
+    """
     source = source_identity()
     if source != json.loads(source_snapshot.read_text(encoding="utf-8")):
         raise RuntimeError("repository source changed while building workload producers")
     check_candidate(binary, build_dir)
     check_candidate(test_binary, build_dir)
     files = producer_files(binary, build_dir, test_binary)
+    manifest_root = output.resolve().parent
     payload = {
         "schema_version": 1,
         "source": source,
-        "files": {name: {"path": str(path.resolve()), "sha256": file_hash(path)} for name, path in files.items()},
+        "files": {
+            name: {"path": path.resolve().relative_to(manifest_root).as_posix(), "sha256": file_hash(path)}
+            for name, path in files.items()
+        },
     }
     output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def verify_producer(manifest: Path, binary: Path, build_dir: Path) -> None:
     """Reject stale source, replaced executables, or a mismatched native test closure."""
+    manifest = manifest.resolve()
+    manifest_root = manifest.parent
     payload = json.loads(manifest.read_text(encoding="utf-8"))
     if payload.get("schema_version") != 1 or payload.get("source") != source_identity():
         raise RuntimeError("workload producer does not match the current repository head and worktree")
     records = payload["files"]
-    files = producer_files(binary, build_dir, Path(records["test_binary"]["path"]))
+    test_binary = manifest_root / records["test_binary"]["path"]
+    files = producer_files(binary, build_dir, test_binary)
     for name, path in files.items():
         record = records[name]
-        if record["path"] != str(path.resolve()) or record["sha256"] != file_hash(path):
+        if record["path"] != path.resolve().relative_to(manifest_root).as_posix() or record["sha256"] != file_hash(path):
             raise RuntimeError(f"workload producer artifact changed: {name}")
     check_candidate(files["test_binary"], build_dir)
 

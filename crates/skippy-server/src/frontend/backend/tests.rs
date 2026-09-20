@@ -34,6 +34,7 @@ fn test_telemetry() -> crate::telemetry::Telemetry {
         "layer_start": 0,
         "layer_end": 4,
         "load_mode": "runtime-slice",
+        "execution_contract": "",
         "bind_addr": "127.0.0.1:0",
     }))
     .expect("minimal stage config for telemetry");
@@ -1206,6 +1207,7 @@ fn hooks_test_backend(hook_policy: Option<Arc<dyn OpenAiHookPolicy>>) -> StageOp
         "layer_start": 0,
         "layer_end": 1,
         "load_mode": "runtime-slice",
+        "execution_contract": "",
         "bind_addr": "127.0.0.1:0",
     }))
     .expect("minimal stage config for hook lifecycle tests");
@@ -1296,7 +1298,7 @@ fn non_chat_topology_guard_rejects_staged_and_filtered_models() {
     cases.push(upstream);
 
     let mut filtered = full_config.clone();
-    filtered.filter_tensors_on_load = true;
+    filtered.resident_tensor_names = vec!["block.0".to_string()];
     cases.push(filtered);
 
     let mut partial = full_config.clone();

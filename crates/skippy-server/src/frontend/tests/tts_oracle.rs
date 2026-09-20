@@ -60,7 +60,6 @@ fn local_tts_config(
             index: None,
             vram_bytes: None,
         }),
-        filter_tensors_on_load: false,
         native_mtp_enabled: false,
         load_mode: LoadMode::RuntimeSlice,
         bind_addr: "127.0.0.1:0".to_string(),

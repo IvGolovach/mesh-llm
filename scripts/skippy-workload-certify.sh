@@ -178,7 +178,8 @@ if [[ -n "$PRODUCER_MANIFEST" ]]; then
   python3 "$ROOT/scripts/check-skippy-workload-candidate.py" \
     --candidate-binary "$CANDIDATE_BIN_DIR/skippy-server" \
     --native-build-dir "$CANDIDATE_BUILD_DIR" --producer-manifest "$PRODUCER_MANIFEST"
-  TEST_COMMAND=("$(jq -er '.files.test_binary.path' "$PRODUCER_MANIFEST")")
+  # Producer manifest paths are relative to the manifest's own directory.
+  TEST_COMMAND=("$(dirname "$PRODUCER_MANIFEST")/$(jq -er '.files.test_binary.path' "$PRODUCER_MANIFEST")")
 elif (( SKIP_BUILD == 0 )); then
   LLAMA_STAGE_BUILD_DIR="$CANDIDATE_BUILD_DIR" \
     cargo build -p skippy-server

@@ -359,11 +359,12 @@ fn runtime_from_loaded_model(
     session_lifecycle_observer: Option<Arc<dyn SessionLifecycleObserver>>,
 ) -> Result<Arc<Mutex<RuntimeState>>> {
     reject_unsupported_staged_workload(config, &model)?;
+    let lane_count = effective_lane_count(config.lane_count, &model)?;
     Ok(Arc::new(Mutex::new(RuntimeState {
         model,
         layer_start: config.layer_start,
         layer_end: config.layer_end,
-        lane_count: config.lane_count,
+        lane_count,
         ctx_size: config.ctx_size,
         next_lane_index: 0,
         free_lane_indices: Vec::new(),
@@ -422,12 +423,45 @@ pub fn load_runtime_with_overrides_and_open_events(
     )?))
 }
 
+/// Effective lane-admission bound for a loaded model.
+///
+/// Mirrors the native encoder-decoder serialization (third_party/llama.cpp
+/// patches/0010: `lane_count = encoder_decoder ? 1 : configured_lane_count`):
+/// encoder output is context-global in llama.cpp, so native only ever serves
+/// lane 0 for encoder-decoder models. Admission must not assign lane indices
+/// that native will never serve. The load-bypass dummy has no native model,
+/// so there is no native contract to mirror and the configured value stands.
+fn effective_lane_count(configured: u32, model: &StageModel) -> Result<u32> {
+    if !model.has_native_model() {
+        return Ok(configured);
+    }
+    Ok(lane_count_for_workload(
+        configured,
+        model.workload_info()?.kind,
+    ))
+}
+
+/// Pure lane-clamp decision: encoder-decoder work is serialized onto one
+/// lane (see [`effective_lane_count`]); every other workload keeps the
+/// configured bound.
+fn lane_count_for_workload(configured: u32, workload: ModelWorkload) -> u32 {
+    if configured <= 1 {
+        return configured;
+    }
+    if workload == ModelWorkload::EncoderDecoder {
+        return 1;
+    }
+    configured
+}
+
 /// Reject full-model-only workloads before filtered stages can begin serving.
 pub(crate) fn reject_unsupported_staged_workload(
     config: &StageConfig,
     model: &StageModel,
 ) -> Result<()> {
-    if !config.filter_tensors_on_load {
+    // A stage plan (or an explicit layer range) means filtered stage
+    // execution, which full-model-only workloads do not support.
+    if config.resident_tensor_names.is_empty() && config.layer_start == 0 {
         return Ok(());
     }
     if model.supports_speech_synthesis() {
@@ -537,11 +571,9 @@ fn runtime_config_from_stage_config(
             skippy_protocol::GlmDsaPolicy::Auto => RuntimeGlmDsaPolicy::Auto,
             skippy_protocol::GlmDsaPolicy::V1 => RuntimeGlmDsaPolicy::V1,
         },
-        include_embeddings: config.layer_start == 0,
-        include_output: config.downstream.is_none(),
         mtp_source: overrides.mtp_source,
-        filter_tensors_on_load: config.filter_tensors_on_load,
         resident_tensor_names: config.resident_tensor_names.clone(),
+        execution_contract: config.execution_contract.clone(),
         activation_import_identities: config.activation_import_identities.clone(),
         activation_import_bindings: config.activation_import_bindings.clone(),
         activation_export_identities: config.activation_export_identities.clone(),
@@ -607,13 +639,13 @@ mod tests {
     };
     use skippy_runtime::{
         ActivationFrame, CheckpointQuantization, FlashAttentionType as RuntimeFlashAttentionType,
-        MtpSource, RuntimeConfig, SamplingConfig,
+        ModelWorkload, MtpSource, RuntimeConfig, SamplingConfig, StageModel,
     };
 
     use super::{
-        RuntimeLaunchOverrides, RuntimeState, load_runtime_with_overrides,
-        max_idle_sessions_from_stage_config, reject_legacy_serving_package,
-        runtime_config_from_stage_config,
+        RuntimeLaunchOverrides, RuntimeState, effective_lane_count, lane_count_for_workload,
+        load_runtime_with_overrides, max_idle_sessions_from_stage_config,
+        reject_legacy_serving_package, runtime_config_from_stage_config, runtime_from_loaded_model,
     };
 
     #[test]
@@ -624,6 +656,46 @@ mod tests {
         // report a stale non-zero pool).
         let rt = RuntimeState::new_modelless_for_test(4);
         assert_eq!(rt.kv_pool_tokens(), 0);
+        assert_eq!(rt.lane_count(), 4);
+    }
+
+    #[test]
+    fn encoder_decoder_lane_admission_clamps_to_the_native_single_lane() {
+        // Native serializes encoder-decoder work onto one lane
+        // (third_party/llama.cpp patches/0010), so admission must not hand
+        // out lane indices native will never serve. Every other workload
+        // keeps the configured bound.
+        assert_eq!(lane_count_for_workload(4, ModelWorkload::EncoderDecoder), 1);
+        assert_eq!(lane_count_for_workload(1, ModelWorkload::EncoderDecoder), 1);
+        assert_eq!(
+            lane_count_for_workload(4, ModelWorkload::CausalGeneration),
+            4
+        );
+        assert_eq!(lane_count_for_workload(4, ModelWorkload::Embedding), 4);
+        assert_eq!(lane_count_for_workload(4, ModelWorkload::Rerank), 4);
+    }
+
+    #[test]
+    fn load_bypass_dummy_models_keep_the_configured_lane_count() {
+        // The load-bypass dummy has no native model, so there is no native
+        // lane contract to mirror: the configured bound must survive both
+        // the helper and the full construction path. MESH_LLM_BYPASS_SKIPPY_MODEL_LOAD
+        // is a test/CI shim, but multi-lane configs must keep working
+        // through it.
+        assert_eq!(
+            effective_lane_count(4, &StageModel::new_dummy()).unwrap(),
+            4
+        );
+        let config = StageConfig {
+            stage_id: "stage-0".to_string(),
+            lane_count: 4,
+            ..StageConfig::default()
+        };
+        let runtime = runtime_from_loaded_model(&config, StageModel::new_dummy(), None)
+            .expect("dummy construction succeeds");
+        let rt = runtime
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         assert_eq!(rt.lane_count(), 4);
     }
 
@@ -667,7 +739,6 @@ mod tests {
             kv_unified: None,
             swa_full: None,
             cache_idle_slots: None,
-            filter_tensors_on_load: true,
             resident_tensor_names: Vec::new(),
             selected_device: Some(StageDevice {
                 backend_device: "Vulkan1".into(),
@@ -790,7 +861,6 @@ mod tests {
             kv_unified: None,
             swa_full: None,
             cache_idle_slots,
-            filter_tensors_on_load: false,
             resident_tensor_names: Vec::new(),
             selected_device: None,
             kv_cache: None,
@@ -870,7 +940,6 @@ mod tests {
             kv_unified: None,
             swa_full: None,
             cache_idle_slots: None,
-            filter_tensors_on_load: true,
             resident_tensor_names: Vec::new(),
             selected_device: Some(StageDevice {
                 backend_device: "CPU".into(),
@@ -894,8 +963,7 @@ mod tests {
         let runtime_config =
             runtime_config_from_stage_config(&config, &RuntimeLaunchOverrides::default()).unwrap();
 
-        assert!(!runtime_config.include_embeddings);
-        assert!(runtime_config.include_output);
+        assert!(runtime_config.is_terminal_stage());
         assert_eq!(runtime_config.mtp_source, MtpSource::Disabled);
     }
 
@@ -1000,7 +1068,6 @@ mod tests {
             kv_unified: None,
             swa_full: None,
             cache_idle_slots: None,
-            filter_tensors_on_load: true,
             resident_tensor_names,
             selected_device: Some(StageDevice {
                 backend_device: "CPU".into(),
@@ -1225,7 +1292,6 @@ mod tests {
             kv_unified: None,
             swa_full: None,
             cache_idle_slots: None,
-            filter_tensors_on_load: false,
             resident_tensor_names: Vec::new(),
             selected_device: None,
             kv_cache: None,
@@ -1272,6 +1338,7 @@ mod tests {
             "cache_type_v": "f16",
             "native_mtp_enabled": true,
             "load_mode": "runtime-slice",
+            "execution_contract": "",
             "bind_addr": "127.0.0.1:0"
         }))
         .expect("stage config should deserialize");
@@ -1329,7 +1396,6 @@ mod tests {
             kv_unified: None,
             swa_full: None,
             cache_idle_slots: None,
-            filter_tensors_on_load: false,
             resident_tensor_names: Vec::new(),
             selected_device: None,
             kv_cache: None,

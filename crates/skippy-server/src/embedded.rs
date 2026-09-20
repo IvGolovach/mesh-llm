@@ -49,7 +49,8 @@ pub struct EmbeddedRuntimeStatus {
     pub last_error: Option<String>,
     /// Session stats, possibly a cached snapshot rather than a live read.
     ///
-    /// `lane_count` is authoritative (it comes from `StageConfig`); everything
+    /// `lane_count` is the effective admission bound (the `StageConfig`
+    /// value, clamped to the native encoder-decoder single lane); everything
     /// else may be frozen. Display only — never gate a decision on it.
     pub sessions: RuntimeSessionStats,
     /// When [`Self::sessions`] was actually read, which may be arbitrarily
@@ -759,7 +760,6 @@ mod tests {
             kv_unified: None,
             swa_full: None,
             cache_idle_slots: None,
-            filter_tensors_on_load: false,
             resident_tensor_names: Vec::new(),
             selected_device: None,
             kv_cache: None,

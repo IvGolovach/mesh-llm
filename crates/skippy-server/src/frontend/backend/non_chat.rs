@@ -75,7 +75,7 @@ impl StageOpenAiBackend {
             config.stage_index == 0
                 && config.layer_start == 0
                 && config.layer_end > 0
-                && !config.filter_tensors_on_load
+                && config.resident_tensor_names.is_empty()
                 && config.upstream.is_none()
                 && config.downstream.is_none()
         }

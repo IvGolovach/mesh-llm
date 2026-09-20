@@ -188,7 +188,9 @@ def candidate_test_command(env: dict[str, str]) -> list[str]:
         cwd=ROOT, env=env, check=True,
     )
     producer = json.loads(Path(manifest).read_text(encoding="utf-8"))
-    return [producer["files"]["test_binary"]["path"], TEST_NAME,
+    manifest_root = Path(manifest).resolve().parent
+    test_binary = manifest_root / producer["files"]["test_binary"]["path"]
+    return [str(test_binary), TEST_NAME,
             "--exact", "--nocapture", "--test-threads=1"]
 
 

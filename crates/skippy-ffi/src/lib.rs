@@ -5,7 +5,7 @@ mod dynamic_library;
 // without compiling the crate to determine native-runtime compatibility.
 pub const ABI_VERSION_MAJOR: u32 = 0;
 pub const ABI_VERSION_MINOR: u32 = 1;
-pub const ABI_VERSION_PATCH: u32 = 58;
+pub const ABI_VERSION_PATCH: u32 = 60;
 
 // Propagate static native archive changes through Cargo dependency metadata so
 // final binaries are relinked after CMake rebuilds llama.cpp.
@@ -43,9 +43,9 @@ pub use abi::{
     Opaque, RuntimeConfig, Session, SkippyDecodeStepSampledMtpFn, SkippyModelAttachMtpDraftModelFn,
     SkippyRuntimeEventCallback, SkippyRuntimeEventCategory, SkippyRuntimeEventEmitterKind,
     SkippyRuntimeEventFailureCode, SkippyRuntimeEventKind, SkippyRuntimeEventProgressUnit,
-    SkippyRuntimeEventReporterV1, SkippyRuntimeEventV1, SlicePlan, Status, TRISTATE_AUTO,
-    TRISTATE_FALSE, TRISTATE_TRUE, TensorRole, WORKLOAD_INFO_V1_ABI_VERSION, WorkloadInfoV1,
-    WorkloadKind, WorkloadPooling, runtime_abi_supported,
+    SkippyRuntimeEventReporterV1, SkippyRuntimeEventV1, Status, TRISTATE_AUTO, TRISTATE_FALSE,
+    TRISTATE_TRUE, TensorRole, WORKLOAD_INFO_V1_ABI_VERSION, WorkloadInfoV1, WorkloadKind,
+    WorkloadPooling, runtime_abi_supported,
 };
 pub use activation::{
     ACTIVATION_BOUNDARY_DESC_VERSION, ACTIVATION_FRAME_VERSION, ACTIVATION_IDENTITY_BYTES,
@@ -75,9 +75,9 @@ pub use stage_plan::{
     STAGE_PLAN_STATE_DESC_V1_ABI_VERSION, STAGE_PLAN_VALUE_DESC_V1_ABI_VERSION,
     STAGE_PLANNER_CONFIG_V1_ABI_VERSION, STAGE_PLANNER_PROFILE_V1_ABI_VERSION,
     STAGE_PLANNER_TENSOR_V1_ABI_VERSION, StagePlan, StagePlanDescV1, StagePlanProfileDescV1,
-    StagePlanStateAccess, StagePlanStateDescV1, StagePlanStateKind, StagePlanStringRefV1,
-    StagePlanValueDescV1, StagePlanValueKind, StagePlanner, StagePlannerConfigV1,
-    StagePlannerProfileV1, StagePlannerTensorV1,
+    StagePlanStateAccess, StagePlanStateDescV1, StagePlanStateKind, StagePlanStateResidency,
+    StagePlanStringRefV1, StagePlanValueDescV1, StagePlanValueKind, StagePlanner,
+    StagePlannerConfigV1, StagePlannerProfileV1, StagePlannerTensorV1,
 };
 pub use state::{
     KV_PAGE_CODEC_ISWA_COMPOSITE_V1, KV_PAGE_CODEC_SINGLE_V1, KV_PAGE_FLAG_HAS_K_IDX,
@@ -134,8 +134,7 @@ pub use dynamic::{
     skippy_session_llama_context, skippy_session_memory_used_cells, skippy_session_position,
     skippy_session_rerank, skippy_session_reset, skippy_session_restore_prefix,
     skippy_session_sample_current, skippy_session_save_prefix, skippy_session_sequence_id,
-    skippy_session_set_position, skippy_session_signal_window, skippy_slice_plan_add_layer_range,
-    skippy_slice_plan_create, skippy_slice_plan_free, skippy_stage_plan_describe_v1,
+    skippy_session_set_position, skippy_session_signal_window, skippy_stage_plan_describe_v1,
     skippy_stage_plan_free, skippy_stage_plan_profile_at_v1,
     skippy_stage_plan_resident_tensor_at_v1, skippy_stage_plan_state_at_v1,
     skippy_stage_plan_string_v1, skippy_stage_plan_validate_chain_v1,
@@ -143,7 +142,6 @@ pub use dynamic::{
     skippy_stage_planner_realize_v1, skippy_token_is_eog, skippy_tokenize, skippy_trim_session,
     skippy_verify_tokens, skippy_verify_tokens_frame_sampled, skippy_write_gguf_from_parts,
     skippy_write_gguf_from_parts_consuming, skippy_write_gguf_metadata_from_parts,
-    skippy_write_slice_gguf,
 };
 
 #[cfg(feature = "dynamic-runtime")]
@@ -190,8 +188,7 @@ pub use static_bindings::{
     skippy_session_llama_context, skippy_session_memory_used_cells, skippy_session_position,
     skippy_session_rerank, skippy_session_reset, skippy_session_restore_prefix,
     skippy_session_sample_current, skippy_session_save_prefix, skippy_session_sequence_id,
-    skippy_session_set_position, skippy_session_signal_window, skippy_slice_plan_add_layer_range,
-    skippy_slice_plan_create, skippy_slice_plan_free, skippy_stage_plan_describe_v1,
+    skippy_session_set_position, skippy_session_signal_window, skippy_stage_plan_describe_v1,
     skippy_stage_plan_free, skippy_stage_plan_profile_at_v1,
     skippy_stage_plan_resident_tensor_at_v1, skippy_stage_plan_state_at_v1,
     skippy_stage_plan_string_v1, skippy_stage_plan_validate_chain_v1,
@@ -199,5 +196,4 @@ pub use static_bindings::{
     skippy_stage_planner_realize_v1, skippy_token_is_eog, skippy_tokenize, skippy_trim_session,
     skippy_verify_tokens, skippy_verify_tokens_frame_sampled, skippy_write_gguf_from_parts,
     skippy_write_gguf_from_parts_consuming, skippy_write_gguf_metadata_from_parts,
-    skippy_write_slice_gguf,
 };

@@ -2,8 +2,8 @@
   "schema_version": 2,
   "native_recipe": {
     "llama_upstream_sha": "661643e43079a4ee6faab4c1895291767b67ea8d",
-    "skippy_abi": "0.1.58",
-    "patch_queue_sha256": "b109f4c5e01690901209f43e2be51b4b5253a0f83823afa2b3e07e55187b9041"
+    "skippy_abi": "0.1.60",
+    "patch_queue_sha256": "b225fd3a11eb2d4e36ee830279b0c6311eecd50f073e06d29734b18d7117c170"
   },
   "architectures": [
     "afmoe",
