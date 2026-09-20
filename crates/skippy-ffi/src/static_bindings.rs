@@ -647,33 +647,6 @@ unsafe extern "C" {
         out_error: *mut *mut Error,
     ) -> Status;
 
-    pub fn skippy_slice_plan_create(
-        info: *mut ModelInfo,
-        out_plan: *mut *mut SlicePlan,
-        out_error: *mut *mut Error,
-    ) -> Status;
-
-    pub fn skippy_slice_plan_free(plan: *mut SlicePlan, out_error: *mut *mut Error) -> Status;
-
-    pub fn skippy_slice_plan_add_layer_range(
-        plan: *mut SlicePlan,
-        stage_index: i32,
-        layer_start: i32,
-        layer_end: i32,
-        include_embeddings: bool,
-        include_output: bool,
-        include_per_layer_token_embd: bool,
-        out_error: *mut *mut Error,
-    ) -> Status;
-
-    pub fn skippy_write_slice_gguf(
-        info: *mut ModelInfo,
-        plan: *const SlicePlan,
-        stage_index: i32,
-        output_path: *const c_char,
-        out_error: *mut *mut Error,
-    ) -> Status;
-
     pub fn skippy_write_gguf_metadata_from_parts(
         input_paths: *const *const c_char,
         input_count: usize,

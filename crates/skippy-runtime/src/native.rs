@@ -92,7 +92,7 @@ pub struct StageModel {
 
 struct StageModelInner {
     raw: *mut RawModel,
-    include_output: bool,
+    terminal_stage: bool,
     capability: Option<LoadedModelCapability>,
 }
 
@@ -170,7 +170,7 @@ impl StageModel {
         Self {
             inner: Arc::new(StageModelInner {
                 raw: std::ptr::null_mut(),
-                include_output: true,
+                terminal_stage: true,
                 capability: None,
             }),
             media: None,
@@ -220,7 +220,7 @@ impl StageModel {
         Ok(Self {
             inner: Arc::new(StageModelInner {
                 raw,
-                include_output: config.include_output,
+                terminal_stage: config.is_terminal_stage(),
                 capability,
             }),
             media,
@@ -531,7 +531,7 @@ impl StageModel {
         Ok(StageSession {
             raw,
             token_count: 0,
-            include_output: self.inner.include_output,
+            terminal_stage: self.inner.terminal_stage,
         })
     }
 
@@ -561,7 +561,7 @@ impl StageModel {
         Ok(StageSession {
             raw,
             token_count: u64::try_from(token_ids.len()).context("token count exceeds u64")?,
-            include_output: self.inner.include_output,
+            terminal_stage: self.inner.terminal_stage,
         })
     }
 

@@ -1455,7 +1455,15 @@ impl Node {
         })
     }
 
-    /// Snapshot only this node's models for endpoint-local workload admission.
+    /// Locally served descriptors only -- unlike [`Self::all_served_model_descriptors`],
+    /// never includes a peer's gossiped copy, so a caller matching on
+    /// `model_name` cannot be handed a peer's descriptor for a same-named
+    /// model. `network/openai/ingress.rs`'s serving-provenance lookup relies
+    /// on that: gossip strips `weights_digest` before it crosses the wire
+    /// (see `protocol/convert.rs`), so a peer descriptor would silently read
+    /// back `None` even when this host's own load-time digest is known.
+    /// Endpoint-local workload admission also snapshots only this node's
+    /// models, never a peer's copy.
     pub async fn served_model_descriptors(&self) -> Vec<ServedModelDescriptor> {
         self.served_model_descriptors.lock().await.clone()
     }

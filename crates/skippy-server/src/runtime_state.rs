@@ -537,10 +537,7 @@ fn runtime_config_from_stage_config(
             skippy_protocol::GlmDsaPolicy::Auto => RuntimeGlmDsaPolicy::Auto,
             skippy_protocol::GlmDsaPolicy::V1 => RuntimeGlmDsaPolicy::V1,
         },
-        include_embeddings: config.layer_start == 0,
-        include_output: config.downstream.is_none(),
         mtp_source: overrides.mtp_source,
-        filter_tensors_on_load: config.filter_tensors_on_load,
         resident_tensor_names: config.resident_tensor_names.clone(),
         activation_import_identities: config.activation_import_identities.clone(),
         activation_import_bindings: config.activation_import_bindings.clone(),
@@ -667,7 +664,6 @@ mod tests {
             kv_unified: None,
             swa_full: None,
             cache_idle_slots: None,
-            filter_tensors_on_load: true,
             resident_tensor_names: Vec::new(),
             selected_device: Some(StageDevice {
                 backend_device: "Vulkan1".into(),
@@ -790,7 +786,6 @@ mod tests {
             kv_unified: None,
             swa_full: None,
             cache_idle_slots,
-            filter_tensors_on_load: false,
             resident_tensor_names: Vec::new(),
             selected_device: None,
             kv_cache: None,
@@ -870,7 +865,6 @@ mod tests {
             kv_unified: None,
             swa_full: None,
             cache_idle_slots: None,
-            filter_tensors_on_load: true,
             resident_tensor_names: Vec::new(),
             selected_device: Some(StageDevice {
                 backend_device: "CPU".into(),
@@ -894,8 +888,7 @@ mod tests {
         let runtime_config =
             runtime_config_from_stage_config(&config, &RuntimeLaunchOverrides::default()).unwrap();
 
-        assert!(!runtime_config.include_embeddings);
-        assert!(runtime_config.include_output);
+        assert!(runtime_config.is_terminal_stage());
         assert_eq!(runtime_config.mtp_source, MtpSource::Disabled);
     }
 
@@ -1000,7 +993,6 @@ mod tests {
             kv_unified: None,
             swa_full: None,
             cache_idle_slots: None,
-            filter_tensors_on_load: true,
             resident_tensor_names,
             selected_device: Some(StageDevice {
                 backend_device: "CPU".into(),
@@ -1225,7 +1217,6 @@ mod tests {
             kv_unified: None,
             swa_full: None,
             cache_idle_slots: None,
-            filter_tensors_on_load: false,
             resident_tensor_names: Vec::new(),
             selected_device: None,
             kv_cache: None,
@@ -1329,7 +1320,6 @@ mod tests {
             kv_unified: None,
             swa_full: None,
             cache_idle_slots: None,
-            filter_tensors_on_load: false,
             resident_tensor_names: Vec::new(),
             selected_device: None,
             kv_cache: None,

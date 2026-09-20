@@ -113,10 +113,8 @@ test-all:
         --exclude skippy-model-package \
         --exclude skippy-runtime \
         --exclude skippy-server
-    # The workspace's dynamic-native-runtime feature otherwise unifies into
-    # the package fixture tests, which require the statically linked GGUF ABI.
     echo "--- Static Skippy model-package tests ---"
-    just with-lld cargo test --package skippy-model-package --bin skippy-model-package
+    just with-lld cargo test --package skippy-model-package --no-default-features
     echo "--- Static Skippy runtime tests ---"
     just with-lld cargo test --package skippy-runtime --no-default-features --lib
     echo "--- Static Skippy server tests ---"
