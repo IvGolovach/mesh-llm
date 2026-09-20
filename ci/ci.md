@@ -84,20 +84,33 @@ point the battery's `SKIPPY_WORKLOAD_*` variables at the restored closure, so
 no worker compiles or downloads. No build runner is held while workers queue:
 one machine can execute all jobs serially, and more machines can run them
 concurrently. Each machine must have the same arm64/Metal toolchain/runtime
-compatibility and read-only `HF_CACHE=/Users/lab/models/huggingface`, with
-`HF_HUB_OFFLINE=1`. One service per physical certification machine avoids
-competing model loads and ports. There is no Actions model cache.
+compatibility and an existing readable HF cache.
+The shared `use-canary-cache` action loads the runner account's interactive login
+shell for both producer and family jobs. It uses `HF_HOME` (falling back to legacy
+`HF_CACHE` or the standard user cache), validates its `hub` directory and any
+explicit `HF_HUB_CACHE`, and exports the resolved paths for the planner. A missing
+mount fails with its actual path; the workflow never creates or seeds a model
+cache. Existing `HF_TOKEN`/`HF_TOKEN_PATH` configuration is preserved, with tokens
+masked before export. `HF_HUB_OFFLINE=1` is applied as certification policy rather
+than required in the machine environment. Compiler-cache and local-tool defaults
+use the runner account's home directory instead of a fixed username. One service
+per physical certification machine avoids competing model loads and ports.
+There is no Actions model cache and no worker-side compilation or download.
 
 The aggregate requires every planned family exactly once, successful worker
 status, matching candidate/plan/build digests, and each family's required
 lanes from the plan — split-parity lanes for causal rows, class-specific smoke
 plus oracle lanes for the non-chat rows — plus any required multimodal result,
 so a failed or missing non-chat smoke/oracle lane fails the pass. The battery
-itself reconciles the production planner's selected cuts, immutable revisions,
-tensor bytes, and native MTP requirements. Missing, cancelled, duplicate, or
-stale evidence cannot certify. Full worker/build logs remain for 14 days;
-executable handoffs remain for seven days so a single-machine queue can
-complete later passes.
+itself reconciles the production
+planner's selected cuts, immutable revisions, tensor bytes, and native MTP
+requirements. Missing, cancelled, duplicate, or stale evidence cannot certify.
+Aggregation reports every failed receipt, including its runner and outcome, in
+the job log and Actions summary before rejecting the pass. Worker/aggregate
+failures remain recoverable by later bounded repair passes; only complete
+independent success permits publication.
+Full worker/build logs remain for 14 days; executable handoffs remain for seven
+days so a single-machine queue can complete later passes.
 
 Within a build job, Goose resumes the same session for prepare/build failures
 under the existing 11.5-hour coding-admission and 12-hour per-gate budgets. A
