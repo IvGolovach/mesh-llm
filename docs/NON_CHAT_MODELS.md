@@ -84,7 +84,9 @@ zero-based index of the original document.
 Encoder-decoder GGUFs use the existing completion and chat response shapes.
 Their encoder pass and decoder loop are executed by the local Skippy runtime;
 tool calls are rejected because the current encoder-decoder path does not
-implement that contract.
+implement that contract. Encoder-decoder execution has one effective runtime
+lane because llama.cpp shares the encoder output across the model context;
+request admission uses that same single-lane limit.
 
 OCR remains a multimodal text-generation request. Send the image using the
 existing `image_url`/`input_image` content-part contract. Automatic routing
@@ -150,8 +152,15 @@ scripts/skippy-workload-certify.sh \
 Projector-backed classes additionally require `--projector-path`. Each lane
 checks local real-model behavior and exercises its HTTP endpoint through the
 OpenAI frontend. The embedding lane also uses the official Python OpenAI SDK
-when that optional package is installed; its mandatory HTTP assertions do not
-depend on the SDK being present.
+and fails if the SDK is unavailable. Set `SKIPPY_WORKLOAD_SDK_PYTHON` to a Python
+environment with the `openai` package installed; the raw HTTP and SDK checks
+are both required.
+
+The smoke and oracle phases restart the candidate on the same port. On Unix,
+the serving listener permits rebinding after closed connections enter
+`TIME_WAIT`, but never shares an address with another live listener. This
+restart behavior is covered by listener tests and is needed for sequential
+workload certification; Windows address-sharing behavior is unchanged.
 
 An isolated invocation without an oracle remains a smoke check only: it verifies
 local execution, the HTTP response contract, and class-specific coarse
@@ -208,7 +217,7 @@ The per-class oracle gates are:
 | Embedding | Identical batch and each individual input; same vector width, maximum coordinate error `1e-4`, minimum cosine `0.99999` | Parity does not measure retrieval quality |
 | Rerank | Identical query/documents; maximum score error `1e-4` and identical ordering | Parity does not measure ranking quality |
 | Encoder-decoder | Same prompt and greedy seed; identical text after whitespace normalization | Pinned direct monolithic completion CLI, not the server endpoint |
-| OCR | Same generated `MESH 42` PNG and prompt; normalized text matches and contains the independently known fixture label | One synthetic image does not certify broad OCR accuracy |
+| OCR | Same generated `MESH 42` PNG and prompt; normalized text matches the independently known fixture label exactly | One synthetic image does not certify broad OCR accuracy |
 | Speech recognition | Same WAV and prompt; normalized text matches | The generic smoke WAV has no checked-in transcript label, so this is execution parity, not transcription accuracy |
 | Speech synthesis | Same prompt, seed, top-k/top-p, and frame cap in deterministic in-process Skippy and monolithic `llama-tts`; PCM format/length match, relative RMS error at most `2%`, waveform cosine at least `0.9995` | Public HTTP speech sampling is stochastic; PCM parity does not establish intelligibility |
 

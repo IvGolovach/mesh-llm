@@ -18,12 +18,12 @@ PRIVATE_TARGETS = {
     "skippy-hardware-application-probe",
     "skippy-model-fixture-generator",
     "skippy-model-loader-accounting",
+    "skippy-runtime-events-test",
     "skippy-noalloc-graph-planning",
     "skippy-renamed-multishard-planning",
     "skippy-stage-slice-plan",
 }
 LEGACY_TARGETS = {
-    "test-skippy-activation-layout",
     "test-skippy-kv-cells-contiguous",
     "test-skippy-kv-page-export",
     "test-skippy-model-loader-accounting",
@@ -181,6 +181,7 @@ class LlamaNativeFullReplayTests(unittest.TestCase):
         self.assertTrue(PRIVATE_TARGETS.issubset(build["args"]))
         self.assertTrue(LEGACY_TARGETS.issubset(build["args"]))
         self.assertTrue(NON_CHAT_TARGETS.issubset(build["args"]))
+        self.assertNotIn("test-skippy-activation-layout", build["args"])
         self.assertNotIn("test-llama-archs", build["args"])
         self.assertEqual(
             [fixture[:4] for fixture in fixtures],

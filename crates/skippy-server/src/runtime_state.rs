@@ -461,7 +461,7 @@ pub(crate) fn reject_unsupported_staged_workload(
 ) -> Result<()> {
     // A stage plan (or an explicit layer range) means filtered stage
     // execution, which full-model-only workloads do not support.
-    if model.is_dummy()
+    if !model.has_native_model()
         || (config.resident_tensor_names.is_empty() && config.layer_start == 0)
     {
         return Ok(());
@@ -665,7 +665,7 @@ mod tests {
         )
         .unwrap();
         let runtime = runtime.lock().unwrap();
-        assert!(runtime.model.is_dummy());
+        assert!(!runtime.model.has_native_model());
         assert_eq!(runtime.lane_count(), 2);
     }
 
@@ -681,6 +681,7 @@ mod tests {
     }
 
     #[test]
+    /// Rust admission must match the one native lane sharing encoder output.
     fn encoder_decoder_lane_admission_clamps_to_the_native_single_lane() {
         // Native serializes encoder-decoder work onto one lane
         // (third_party/llama.cpp patches/0010), so admission must not hand
@@ -697,6 +698,7 @@ mod tests {
     }
 
     #[test]
+    /// Model-load bypass has no native lane contract and retains explicit test capacity.
     fn load_bypass_dummy_models_keep_the_configured_lane_count() {
         // The load-bypass dummy has no native model, so there is no native
         // lane contract to mirror: the configured bound must survive both

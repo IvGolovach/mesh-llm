@@ -52,7 +52,8 @@ def vectors(response: dict, expected_count: int) -> list[list[float]]:
         raise RuntimeError("embedding oracle response has the wrong batch size")
     result = []
     for index, row in enumerate(rows):
-        if not isinstance(row, dict) or row.get("index") != index:
+        if (not isinstance(row, dict) or type(row.get("index")) is not int
+                or row["index"] != index):
             raise RuntimeError("embedding oracle response has invalid indexes")
         vector = row.get("embedding")
         if not isinstance(vector, list) or not vector:

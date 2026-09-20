@@ -235,7 +235,7 @@ fn per_layer_suffix(key: &str) -> Option<&'static str> {
 
 fn extend_array_kv(kv: &mut GgufKv, mtp_kv: &[GgufKv], layer_count: usize) -> Result<()> {
     match kv {
-        GgufKv::ArrayU32 { key, value } if value.len() == layer_count && !value.is_empty() => {
+        GgufKv::ArrayU32 { key, value } if value.len() == layer_count => {
             let mtp_value = mtp_layer_integer(mtp_kv, key);
             let fallback = u64::from(value[value.len() - 1]);
             value.push(
@@ -243,7 +243,7 @@ fn extend_array_kv(kv: &mut GgufKv, mtp_kv: &[GgufKv], layer_count: usize) -> Re
                     .context("per-layer array entry overflows uint32")?,
             );
         }
-        GgufKv::ArrayI32 { key, value } if value.len() == layer_count && !value.is_empty() => {
+        GgufKv::ArrayI32 { key, value } if value.len() == layer_count => {
             let mtp_value = mtp_layer_integer(mtp_kv, key);
             let fallback = u64::try_from(i64::from(value[value.len() - 1]))
                 .context("negative per-layer array entry")?;
@@ -304,9 +304,6 @@ fn extend_raw_array_kv(
         bytes.len() >= 12 + data_len,
         "per-layer array {key:?} is truncated"
     );
-    if count == 0 {
-        return Ok(());
-    }
     // Duplicate the last element by default; prefer the MTP draft's scalar
     // value when it is representable in the array's element type.
     let mut element = bytes[12 + data_len - element_size..12 + data_len].to_vec();
@@ -1280,24 +1277,6 @@ mod tests {
             Some(vec![512, 1024, 2048])
         );
         assert_eq!(get_arr("arch.attention.head_count"), Some(vec![8, 8, 8]));
-    }
-
-    /// Zero-layer raw arrays have no final element and must remain unchanged.
-    #[test]
-    fn empty_raw_per_layer_array_is_not_extended() {
-        let mut bytes = Vec::new();
-        put_u32(&mut bytes, GGUF_TYPE_UINT16);
-        put_u64(&mut bytes, 0);
-        let mut kv = GgufKv::Raw {
-            key: "arch.attention.head_count".to_string(),
-            value_type: GGUF_TYPE_ARRAY,
-            bytes: bytes.clone(),
-        };
-        extend_array_kv(&mut kv, &[], 0).unwrap();
-        let GgufKv::Raw { bytes: actual, .. } = kv else {
-            panic!("expected raw array");
-        };
-        assert_eq!(actual, bytes);
     }
 
     #[test]

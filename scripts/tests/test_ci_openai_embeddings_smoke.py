@@ -60,6 +60,20 @@ class EmbeddingSdkSmokeTests(unittest.TestCase):
         """A correctly labelled, sized and encoded response remains certifiable."""
         self.assertIn("smoke passed", self.run_smoke(self.encoded_response()))
 
+    def test_numeric_batch_rejects_invalid_indexes_and_boolean_components(self) -> None:
+        """The float response must enforce wire types as strictly as base64 metadata."""
+        for field, value, message in (
+            ("index", False, "invalid item metadata"),
+            ("index", 0.0, "invalid item metadata"),
+            ("embedding", [True, 0.0], "finite vector"),
+        ):
+            with self.subTest(field=field, value=value):
+                numeric = self.numeric_response()
+                setattr(numeric.data[0], field, value)
+                with patch.object(self, "numeric_response", return_value=numeric):
+                    with self.assertRaisesRegex(RuntimeError, message):
+                        self.run_smoke(self.encoded_response())
+
     def test_empty_and_surplus_batches_fail(self) -> None:
         """Do not certify a nonempty response that silently adds extra vectors."""
         for size in (0, 2):
@@ -145,6 +159,19 @@ class EmbeddingHttpSmokeTests(unittest.TestCase):
                         {"model": "another-model"}, {"object": "embedding"}):
             with self.subTest(changed=changed), self.assertRaises(RuntimeError):
                 self.run_smoke({**good, **changed})
+
+    def test_numeric_batch_rejects_invalid_indexes_and_boolean_components(self) -> None:
+        """Malformed float batches cannot earn certification through Python coercions."""
+        for changed in ({"index": False}, {"index": 0.0}, {"embedding": [True, 0.0]}):
+            with self.subTest(changed=changed):
+                rows = [{"object": "embedding", "index": index, "embedding": [1.0, 0.0]}
+                        for index in range(3)]
+                rows[0].update(changed)
+                request = Mock(return_value={"object": "list", "model": "fixture", "data": rows})
+                with patch.dict(HTTP_SMOKE["smoke_embedding"].__globals__, {"request_json": request}):
+                    with self.assertRaises(RuntimeError):
+                        HTTP_SMOKE["smoke_embedding"]("http://127.0.0.1:9337/v1", "fixture")
+                request.assert_called_once()
 
     def test_base64_values_must_match_float_response(self) -> None:
         """Do not award HTTP certification for a different, correctly sized vector."""

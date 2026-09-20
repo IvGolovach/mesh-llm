@@ -176,6 +176,7 @@ class FamilyEvidenceTests(unittest.TestCase):
             E.validate_results(self.evidence / 'dense/results.jsonl', 'dense', model)
 
     def test_workload_family_requires_its_class_lanes(self):
+        """Non-chat evidence must contain exactly its own smoke and oracle lanes."""
         model = {'family': 'dense', 'class': 'embedding', 'mmproj_artifact': None,
                  'certification_lanes': ['embedding-smoke', 'embedding-oracle']}
         row = {'family': 'dense', 'exit_code': 0, 'workload_class': 'embedding',
@@ -190,6 +191,7 @@ class FamilyEvidenceTests(unittest.TestCase):
             E.validate_results(path, 'dense', model)
 
     def test_workload_class_mismatch_is_rejected(self):
+        """A family result cannot substitute another class for the immutable plan."""
         model = {'family': 'dense', 'class': 'embedding', 'mmproj_artifact': None,
                  'certification_lanes': ['embedding-smoke', 'embedding-oracle']}
         row = {'family': 'dense', 'exit_code': 0, 'workload_class': 'rerank',
@@ -201,11 +203,13 @@ class FamilyEvidenceTests(unittest.TestCase):
             E.validate_results(path, 'dense', model)
 
     def test_tampered_workload_closure_is_rejected(self):
+        """Reject a changed producer closure before allowing any worker execution."""
         (self.package / E.WORKLOAD_ORACLES_TAR).write_bytes(b'wrong')
         with self.assertRaisesRegex(ValueError, 'digest mismatch'):
             E.verify_package(self.package, self.digest)
 
     def test_restore_materializes_relocatable_workload_closure(self):
+        """Restored workers consume verified producer bytes without rebuilding them."""
         checkout = self.root / 'closure-checkout'
         checkout.mkdir()
         subprocess.run(['git', 'init', '-q', str(checkout)], check=True)

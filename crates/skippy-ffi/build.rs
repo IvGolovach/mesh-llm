@@ -343,6 +343,7 @@ fn ensure_static_native_ready(
     backend: &str,
 ) {
     if required_static_archives_exist(build_dir) {
+        read_cmake_cache(&build_dir.join("CMakeCache.txt"));
         return;
     }
 
@@ -404,6 +405,7 @@ fn ensure_static_native_ready(
             build_dir.display()
         );
     }
+    read_cmake_cache(&build_dir.join("CMakeCache.txt"));
 }
 
 fn native_auto_build_enabled() -> bool {
@@ -474,12 +476,19 @@ fn static_archive_exists(
     build_dir.join(unix_archive).exists() || build_dir.join(msvc_archive).exists()
 }
 
+/// Reject unverified archive directories instead of assuming all backends are off.
+fn read_cmake_cache(cache: &std::path::Path) -> String {
+    std::fs::read_to_string(cache).unwrap_or_else(|error| {
+        panic!(
+            "cannot verify native backend configuration from {}: {error}; use a prepared native build with a readable UTF-8 CMakeCache.txt",
+            cache.display()
+        )
+    })
+}
+
 /// Read CMake booleans while tolerating platform line endings and whitespace.
 fn cmake_bool_enabled(cache: &std::path::Path, key: &str) -> bool {
-    let Ok(contents) = std::fs::read_to_string(cache) else {
-        return false;
-    };
-    cmake_cache_bool(&contents, key)
+    cmake_cache_bool(&read_cmake_cache(cache), key)
 }
 
 /// Resolve an enabled backend archive without trusting stale native build outputs.

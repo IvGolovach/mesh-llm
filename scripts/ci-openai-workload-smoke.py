@@ -97,12 +97,13 @@ def smoke_embedding(base_url: str, model: str) -> None:
         raise RuntimeError("embedding response has the wrong batch size")
     vectors = []
     for index, row in enumerate(rows):
-        values = row.get("embedding")
-        if row.get("object") != "embedding" or row.get("index") != index:
+        if (not isinstance(row, dict) or row.get("object") != "embedding"
+                or type(row.get("index")) is not int or row["index"] != index):
             raise RuntimeError("embedding response has invalid item metadata")
+        values = row.get("embedding")
         if not isinstance(values, list) or not values:
             raise RuntimeError("embedding response has no vector")
-        if not all(isinstance(value, (int, float)) and math.isfinite(value) for value in values):
+        if not all(type(value) in (int, float) and math.isfinite(value) for value in values):
             raise RuntimeError("embedding response contains non-finite values")
         norm = math.sqrt(sum(value * value for value in values))
         if abs(norm - 1.0) > 1e-4:

@@ -18,6 +18,12 @@ SPEC.loader.exec_module(oracle)
 
 
 class WorkloadMonolithicOracleTests(unittest.TestCase):
+    def test_embedding_oracle_rejects_boolean_or_float_indexes(self) -> None:
+        """Python numeric equality must not admit a non-integer wire index."""
+        for index in (False, 0.0, "0", None):
+            with self.subTest(index=index), self.assertRaisesRegex(RuntimeError, "invalid indexes"):
+                oracle.vectors({"data": [{"index": index, "embedding": [1.0]}]}, 1)
+
     def test_embedding_requires_dimension_and_numeric_parity(self) -> None:
         """Require matching dimensions and bounded component error, not merely valid vectors."""
         reference = {

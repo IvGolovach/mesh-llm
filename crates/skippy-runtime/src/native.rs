@@ -166,11 +166,6 @@ fn loaded_model_capability(raw: *mut RawModel) -> Option<LoadedModelCapability> 
 }
 
 impl StageModel {
-    /// Whether this is the explicit model-load bypass, with no native model to inspect.
-    pub fn is_dummy(&self) -> bool {
-        self.inner.raw.is_null()
-    }
-
     pub fn new_dummy() -> Self {
         Self {
             inner: Arc::new(StageModelInner {

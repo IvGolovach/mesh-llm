@@ -91,13 +91,7 @@ impl StageOpenAiBackend {
             Some(prepared) => prepared,
             None => self.prepare_text_prompt(&prompt, max_tokens, &ids)?,
         };
-        let workload = self
-            .runtime
-            .lock()
-            .map_err(|_| OpenAiError::backend("runtime lock poisoned"))?
-            .workload_info()
-            .map_err(openai_backend_error)?
-            .kind;
+        let workload = self.model_workload()?;
         if workload == ModelWorkload::EncoderDecoder {
             let mut collector =
                 TextGenerationCollector::new(self.runtime.clone(), stop_values, on_text_chunk)?

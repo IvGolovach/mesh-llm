@@ -528,6 +528,7 @@ async fn real_multimodal_split_smoke_when_fixture_is_set() -> Result<()> {
         IterationScheduler::new(runtime.clone(), &stage0_config, 1, true, telemetry.clone())?;
     let backend = StageOpenAiBackend {
         runtime,
+        workload: Default::default(),
         telemetry,
         config: stage0_config.clone(),
         model_id: "mm-smoke".to_string(),

@@ -1223,6 +1223,7 @@ fn hooks_test_backend(hook_policy: Option<Arc<dyn OpenAiHookPolicy>>) -> StageOp
             .expect("iteration scheduler for hook lifecycle tests");
     StageOpenAiBackend {
         runtime: runtime.clone(),
+        workload: Default::default(),
         config: config.clone(),
         telemetry,
         model_id: "hooks-test-model".to_string(),

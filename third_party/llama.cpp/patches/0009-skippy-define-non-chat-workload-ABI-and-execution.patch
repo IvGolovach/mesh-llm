@@ -6,14 +6,14 @@ Subject: [PATCH] skippy: define non-chat workload ABI and execution
 ---
  include/skippy.h                      |   1 +
  include/skippy/common.h               |   4 +-
- include/skippy/workloads.h            |  87 +++++++
+ include/skippy/workloads.h            |  93 +++++++
  src/CMakeLists.txt                    |   1 +
  src/skippy/abi.cpp                    |   3 +-
  src/skippy/rerank_template.h          |  36 +++
  src/skippy/workloads.cpp              | 360 ++++++++++++++++++++++++++
  tests/CMakeLists.txt                  |   1 +
  tests/test-skippy-rerank-template.cpp |  34 +++
- 9 files changed, 525 insertions(+), 2 deletions(-)
+ 9 files changed, 531 insertions(+), 2 deletions(-)
  create mode 100644 include/skippy/workloads.h
  create mode 100644 src/skippy/rerank_template.h
  create mode 100644 src/skippy/workloads.cpp
@@ -57,7 +57,7 @@ new file mode 100644
 index 000000000..0ee115741
 --- /dev/null
 +++ b/include/skippy/workloads.h
-@@ -0,0 +1,87 @@
+@@ -0,0 +1,93 @@
 +#ifndef SKIPPY_WORKLOADS_H
 +#define SKIPPY_WORKLOADS_H
 +
@@ -111,7 +111,13 @@ index 000000000..0ee115741
 +    uint8_t                      reserved0;
 +};
 +
-+/** @brief Describes the workload implemented by an opened model. */
++/**
++ * @brief Describes the workload implemented by an opened model.
++ *
++ * The caller must initialize out_info->abi_version to SKIPPY_WORKLOAD_INFO_V1_ABI_VERSION
++ * and out_info->struct_size to sizeof(struct skippy_workload_info_v1).
++ * Incorrect values are rejected with SKIPPY_STATUS_INVALID_ARGUMENT.
++ */
 +LLAMA_API enum skippy_status skippy_model_workload_info_v1(const struct skippy_model *      model,
 +                                                           struct skippy_workload_info_v1 * out_info,
 +                                                           struct skippy_error **           out_error);
@@ -633,4 +639,3 @@ index 000000000..d6f9570ba
 +}
 -- 
 2.54.0 (Apple Git-157)
-

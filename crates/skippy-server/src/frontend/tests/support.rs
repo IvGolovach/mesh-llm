@@ -133,6 +133,7 @@ pub(super) fn local_openai_backend(
         IterationScheduler::new(runtime.clone(), &config, 1, true, telemetry.clone())?;
     Ok(StageOpenAiBackend {
         runtime,
+        workload: Default::default(),
         telemetry,
         config,
         model_id: model_id.into(),

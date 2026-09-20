@@ -48,7 +48,8 @@ class SkippyStaticLinkTests(unittest.TestCase):
         return self._run_with_newline(backend, flags, "\n")
 
     def _run_with_newline(
-        self, backend: str, flags: dict[str, str], newline: str
+        self, backend: str, flags: dict[str, str], newline: str,
+        *, cache_mode: str = "valid",
     ) -> subprocess.CompletedProcess[str]:
         """Run the build script with isolated archives and controlled CMake cache line endings."""
         fixture = tempfile.TemporaryDirectory()
@@ -58,11 +59,19 @@ class SkippyStaticLinkTests(unittest.TestCase):
             archive = build_dir / relative
             archive.parent.mkdir(parents=True, exist_ok=True)
             archive.touch()
-        (build_dir / "CMakeCache.txt").write_text(
-            "".join(f"{key}:BOOL={value}{newline}" for key, value in flags.items()),
-            encoding="utf-8",
-            newline="",
-        )
+        cache = build_dir / "CMakeCache.txt"
+        if cache_mode == "valid":
+            cache.write_text(
+                "".join(f"{key}:BOOL={value}{newline}" for key, value in flags.items()),
+                encoding="utf-8",
+                newline="",
+            )
+        elif cache_mode == "invalid-utf8":
+            cache.write_bytes(b"GGML_CUDA:BOOL=ON\n\xff")
+        elif cache_mode == "directory":
+            cache.mkdir()
+        elif cache_mode != "missing":
+            raise ValueError(f"unexpected cache mode: {cache_mode}")
         env = {
             key: value for key, value in os.environ.items()
             if not key.startswith(("LLAMA_STAGE_", "SKIPPY_LLAMA_", "CARGO_FEATURE_"))
@@ -91,6 +100,19 @@ class SkippyStaticLinkTests(unittest.TestCase):
             self.assertNotIn(f"cargo:rustc-link-lib=static={library}", result.stdout)
         for framework in ("Foundation", "Metal", "MetalKit"):
             self.assertNotIn(f"cargo:rustc-link-lib=framework={framework}", result.stdout)
+
+    def test_unreadable_cache_never_means_disabled_backends(self) -> None:
+        """Reject archive-only or unreadable builds instead of assuming CPU safety."""
+        for backend in ("cpu", "metal"):
+            for cache_mode in ("missing", "invalid-utf8", "directory"):
+                with self.subTest(backend=backend, cache_mode=cache_mode):
+                    result = self._run_with_newline(
+                        backend, {}, "\n", cache_mode=cache_mode,
+                    )
+                    self.assertNotEqual(0, result.returncode)
+                    self.assertIn("cannot verify native backend configuration", result.stderr)
+                    self.assertIn("CMakeCache.txt", result.stderr)
+                    self.assertNotIn("selected backend requires", result.stderr)
 
     def test_active_metal_backend_links_only_cache_enabled_archive(self) -> None:
         """Link only the selected Metal archive enabled by CMake."""

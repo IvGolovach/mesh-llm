@@ -1640,7 +1640,7 @@ SKIPPY_COMMON_API enum skippy_status skippy_parse_chat_response_json(
 <a id="skippy-fn-skippy-model-workload-info-v1"></a>
 #### `skippy_model_workload_info_v1`
 
-Describes the workload implemented by an opened model.
+Describes the workload implemented by an opened model. The caller must initialize out_info->abi_version to SKIPPY_WORKLOAD_INFO_V1_ABI_VERSION and out_info->struct_size to sizeof(struct skippy_workload_info_v1). Incorrect values are rejected with SKIPPY_STATUS_INVALID_ARGUMENT.
 
 ```cpp
 LLAMA_API enum skippy_status skippy_model_workload_info_v1(

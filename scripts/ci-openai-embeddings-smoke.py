@@ -38,9 +38,11 @@ def main() -> None:
         raise RuntimeError("embeddings response has the wrong batch size")
     dimensions: int | None = None
     for index, item in enumerate(response.data):
-        if item.object != "embedding" or item.index != index:
+        if item.object != "embedding" or type(item.index) is not int or item.index != index:
             raise RuntimeError("embeddings response has invalid item metadata")
-        if not item.embedding or not all(math.isfinite(value) for value in item.embedding):
+        if not item.embedding or not all(
+            type(value) in (int, float) and math.isfinite(value) for value in item.embedding
+        ):
             raise RuntimeError("embeddings response contains no finite vector")
         norm = math.sqrt(sum(value * value for value in item.embedding))
         if abs(norm - 1.0) > 1e-4:

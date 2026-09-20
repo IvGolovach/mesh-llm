@@ -14,27 +14,31 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def ordered_patches(patch_dir: Path) -> list[Path]:
-    """Validate and order both patch series exactly as native source preparation does."""
+    """Bind core, model-support, and generated patches in native preparation order."""
     patches = sorted(patch_dir.glob("*.patch"))
     for expected, patch in enumerate(patches, start=1):
         if not re.fullmatch(rf"{expected:04d}-.+\.patch", patch.name):
             raise RuntimeError(f"invalid top-level patch sequence: {patch.name}")
-    generated = patch_dir / "generated"
-    if not generated.exists():
-        return patches
-    series = generated / "series"
-    if not series.is_file():
-        raise RuntimeError("generated patch directory has no series file")
-    names = [line.rstrip("\r") for line in series.read_text(encoding="utf-8").splitlines()]
-    if not names or len(names) != len(list(generated.glob("*.patch"))):
-        raise RuntimeError("generated patch series does not cover its patch directory")
-    for expected, name in enumerate(names, start=1):
-        if not re.fullmatch(rf"{expected:04d}-family-[a-z0-9.-]+(?:--[a-z0-9.-]+)*\.patch", name):
-            raise RuntimeError(f"invalid generated patch sequence: {name}")
-        patch = generated / name
-        if not patch.is_file():
-            raise RuntimeError(f"generated patch is missing: {name}")
-        patches.append(patch)
+    for lane, suffix in (
+        ("model_support", r"[a-z0-9][a-z0-9.-]*"),
+        ("generated", r"family-[a-z0-9.-]+(?:--[a-z0-9.-]+)*"),
+    ):
+        directory = patch_dir / lane
+        if not directory.exists():
+            continue
+        series = directory / "series"
+        if not series.is_file():
+            raise RuntimeError(f"{lane} patch directory has no series file")
+        names = series.read_text(encoding="utf-8").splitlines()
+        if not names or len(names) != len(list(directory.glob("*.patch"))):
+            raise RuntimeError(f"{lane} patch series does not cover its patch directory")
+        for expected, name in enumerate(names, start=1):
+            if not re.fullmatch(rf"{expected:04d}-{suffix}\.patch", name):
+                raise RuntimeError(f"invalid {lane} patch sequence: {name}")
+            patch = directory / name
+            if not patch.is_file():
+                raise RuntimeError(f"{lane} patch is missing: {name}")
+            patches.append(patch)
     return patches
 
 
@@ -56,7 +60,7 @@ def prepared_patched_sha(root: Path) -> str:
     prepared_patched = (checkout / ".mesh-llm-patched-sha").read_text(encoding="utf-8").strip()
     prepared_schema = (checkout / ".mesh-llm-prepare-schema").read_text(encoding="utf-8").strip()
     upstream = (root / "third_party/llama.cpp/upstream.txt").read_text(encoding="utf-8").strip()
-    if prepared_schema != "4" or prepared_upstream != upstream:
+    if prepared_schema != "5" or prepared_upstream != upstream:
         raise RuntimeError("prepared llama.cpp checkout does not match the pinned upstream")
     if prepared_patch_digest != patch_digest(root / "third_party/llama.cpp/patches"):
         raise RuntimeError("prepared llama.cpp checkout does not match the current patch queue")

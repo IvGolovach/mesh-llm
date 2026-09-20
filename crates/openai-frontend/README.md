@@ -80,12 +80,18 @@ The backend boundary below is a partial generation example. The complete
 [`OpenAiBackend` trait](src/backend.rs) also defines `embeddings`, `rerank`,
 `audio_speech`, `audio_transcription`, and `audio_translation`; override their
 default unsupported responses to serve the corresponding non-chat endpoints.
+Non-streaming generation also has context-aware variants; their default
+implementations delegate to the corresponding request-only methods.
 
 ```rust
 #[async_trait]
-pub trait OpenAiBackend {
+pub trait OpenAiBackend: Send + Sync + 'static {
     async fn models(&self) -> OpenAiResult<Vec<ModelObject>>;
     async fn chat_completion(
+        &self,
+        request: ChatCompletionRequest,
+    ) -> OpenAiResult<ChatCompletionResponse>;
+    async fn chat_completion_with_context(
         &self,
         request: ChatCompletionRequest,
         context: OpenAiRequestContext,
@@ -96,6 +102,10 @@ pub trait OpenAiBackend {
         context: OpenAiRequestContext,
     ) -> OpenAiResult<ChatCompletionStream>;
     async fn completion(
+        &self,
+        request: CompletionRequest,
+    ) -> OpenAiResult<CompletionResponse>;
+    async fn completion_with_context(
         &self,
         request: CompletionRequest,
         context: OpenAiRequestContext,
