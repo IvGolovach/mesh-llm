@@ -26,9 +26,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::{
-    audio::{
-        AudioResponse, AudioSpeechRequest, AudioTranscriptionRequest, AudioTranscriptionResponse,
-    },
+    audio::{AudioResponse, AudioSpeechRequest, AudioTranscriptionResponse},
     backend::{OpenAiBackend, OpenAiRequestContext, OpenAiResult, SharedBackend},
     backend_lifecycle::{call_backend, call_backend_with_context},
     chat::{CapsuleMarker, ChatCompletionChunk, ChatCompletionRequest},
@@ -61,6 +59,8 @@ use crate::{
 };
 
 const AGENT_SESSION_HEADER_ENV: &str = "MESH_AGENT_SESSION_HEADER";
+mod audio_upload;
+use audio_upload::parse_audio_multipart;
 const BACKEND_TIMEOUT_SECS_ENV: &str = "MESH_OPENAI_BACKEND_TIMEOUT_SECS";
 const MAX_AUDIO_MULTIPART_BODY_BYTES: usize = 64 * 1024 * 1024 + 1024 * 1024;
 
@@ -502,73 +502,6 @@ async fn audio_text_request(
     } else {
         Ok(Json(response).into_response())
     }
-}
-
-/// Decode a bounded audio upload, rejecting duplicate recognized fields consistently.
-async fn parse_audio_multipart(
-    mut multipart: Multipart,
-) -> OpenAiResult<AudioTranscriptionRequest> {
-    let mut model = None;
-    let mut file = None;
-    let mut filename = None;
-    let mut language = None;
-    let mut prompt = None;
-    let mut response_format = None;
-    let mut temperature = None;
-    let mut seen_fields = std::collections::HashSet::new();
-
-    while let Some(field) = multipart
-        .next_field()
-        .await
-        .map_err(|error| multipart_error(error, "multipart body"))?
-    {
-        let name = field.name().unwrap_or_default().to_string();
-        if matches!(
-            name.as_str(),
-            "model" | "file" | "language" | "prompt" | "response_format" | "temperature"
-        ) && !seen_fields.insert(name.clone())
-        {
-            return Err(OpenAiError::invalid_request(format!(
-                "duplicate multipart {name} field"
-            )));
-        }
-        if name == "file" {
-            filename = field.file_name().map(str::to_owned);
-            let bytes = field
-                .bytes()
-                .await
-                .map_err(|error| multipart_error(error, "audio file field"))?;
-            file = Some(bytes.to_vec());
-            continue;
-        }
-        let value = field
-            .text()
-            .await
-            .map_err(|error| multipart_error(error, "multipart text field"))?;
-        match name.as_str() {
-            "model" => model = Some(value),
-            "language" => language = Some(value),
-            "prompt" => prompt = Some(value),
-            "response_format" => response_format = Some(value),
-            "temperature" => {
-                temperature =
-                    Some(value.parse::<f32>().map_err(|_| {
-                        OpenAiError::invalid_request("temperature must be a number")
-                    })?);
-            }
-            _ => {}
-        }
-    }
-
-    Ok(AudioTranscriptionRequest {
-        model: model.ok_or_else(|| OpenAiError::invalid_request("model field is required"))?,
-        file: file.ok_or_else(|| OpenAiError::invalid_request("file field is required"))?,
-        filename,
-        language,
-        prompt,
-        response_format: response_format.unwrap_or_else(|| "json".to_string()),
-        temperature,
-    })
 }
 
 async fn chat_completions(

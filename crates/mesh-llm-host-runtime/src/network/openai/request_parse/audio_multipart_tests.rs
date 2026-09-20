@@ -3,6 +3,23 @@
 use super::super::audio_multipart::{multipart_boundary, multipart_part_is_model};
 use super::*;
 
+/// Routing and rewriting must not choose different multipart boundaries.
+#[tokio::test]
+async fn duplicate_content_type_is_rejected_before_body_routing() {
+    for second in ["multipart/form-data; boundary=other", "application/json"] {
+        let request = format!(
+            "POST /v1/audio/transcriptions HTTP/1.1\r\nContent-Type: multipart/form-data; boundary=mesh\r\ncOnTeNt-TyPe: {second}\r\nContent-Length: 0\r\n\r\n"
+        );
+        let (mut client, mut server) = tokio::io::duplex(request.len() + 1);
+        client.write_all(request.as_bytes()).await.unwrap();
+        client.shutdown().await.unwrap();
+        let error = read_http_request_with_plugin_manager_with_context(&mut server, None)
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("duplicate Content-Type"));
+    }
+}
+
 #[tokio::test]
 /// Model routing must never decode or rewrite the uploaded audio bytes.
 async fn multipart_model_is_parsed_and_rewritten_without_touching_file_bytes() {

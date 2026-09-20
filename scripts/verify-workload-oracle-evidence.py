@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 import sys
 
+from tts_oracle_metrics import validate_tts_metrics
+
 
 ORACLE_EXECUTABLE = {
     "embedding": "llama-server",
@@ -59,8 +61,8 @@ def verify(args: argparse.Namespace) -> None:
         f"{args.model_class} local-monolithic oracle passed: "
     ):
         raise ValueError("oracle evidence lacks an explicit comparator pass")
-    if args.model_class == "speech_synthesis" and not isinstance(evidence.get("metrics"), dict):
-        raise ValueError("TTS oracle evidence lacks PCM metrics")
+    if args.model_class == "speech_synthesis":
+        validate_tts_metrics(evidence.get("metrics"))
 
 
 def main() -> int:

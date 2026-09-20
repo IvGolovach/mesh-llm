@@ -88,6 +88,11 @@ impl RequestSummaryMetadata {
             "/healthz" => Some("healthz"),
             "/readyz" => Some("readyz"),
             "/v1/models" => Some("models"),
+            "/v1/embeddings" => Some("embeddings"),
+            "/v1/rerank" => Some("rerank"),
+            "/v1/audio/speech" => Some("audio_speech"),
+            "/v1/audio/transcriptions" => Some("audio_transcriptions"),
+            "/v1/audio/translations" => Some("audio_translations"),
             "/v1/chat/completions" => Some("chat_completions"),
             "/v1/completions" => Some("completions"),
             "/v1/responses" => Some("responses"),
@@ -254,6 +259,32 @@ mod tests {
             RequestSummaryMetadata::from_openai_ingress_path("/private/path?token=secret")
                 .is_empty()
         );
+    }
+
+    /// Non-chat ingress and embedded frontend use the same bounded route labels.
+    #[test]
+    fn non_chat_ingress_labels_match_frontend_without_retaining_query() {
+        for (path, route) in [
+            ("/v1/embeddings", OpenAiFrontendRoute::Embeddings),
+            ("/v1/rerank", OpenAiFrontendRoute::Rerank),
+            ("/v1/audio/speech", OpenAiFrontendRoute::AudioSpeech),
+            (
+                "/v1/audio/transcriptions",
+                OpenAiFrontendRoute::AudioTranscriptions,
+            ),
+            (
+                "/v1/audio/translations",
+                OpenAiFrontendRoute::AudioTranslations,
+            ),
+        ] {
+            for suffix in ["", "?token=secret"] {
+                let metadata =
+                    RequestSummaryMetadata::from_openai_ingress_path(&format!("{path}{suffix}"));
+                assert_eq!(metadata.route(), openai_route_label(route));
+                assert!(metadata.route().is_some());
+                assert!(metadata.model().is_none());
+            }
+        }
     }
 
     #[test]

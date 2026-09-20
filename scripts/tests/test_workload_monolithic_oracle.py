@@ -61,6 +61,9 @@ class WorkloadMonolithicOracleTests(unittest.TestCase):
             {"index": 1, "relevance_score": -1.0},
         ]}
         self.assertIn("max_abs_delta=0", oracle.compare_rerank(reference, reference))
+        reordered = {"results": list(reversed(reference["results"]))}
+        with self.assertRaisesRegex(RuntimeError, "differs from monolithic reference"):
+            oracle.compare_rerank(reordered, reference)
         changed = {"results": [
             {"index": 0, "relevance_score": 0.1},
             {"index": 1, "relevance_score": 0.2},

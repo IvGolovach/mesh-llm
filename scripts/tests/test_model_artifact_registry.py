@@ -17,6 +17,28 @@ RESOLVER = ROOT / "scripts" / "resolve-test-model-manifest.py"
 
 
 class ModelArtifactRegistryTests(unittest.TestCase):
+    def test_generator_rejects_incompatible_workload_class_and_profile(self) -> None:
+        """A recognized profile must also belong to the selected workload class."""
+        registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
+        for model_class, profile in (
+            ("embedding", "full"),
+            ("rerank", "graph-only"),
+            ("causal_generation", "workload-smoke"),
+            ("causal_generation", "workload-oracle"),
+        ):
+            with self.subTest(model_class=model_class, profile=profile):
+                row = next(row for row in registry["artifacts"] if "certification" in row)
+                row["certification"].update({"class": model_class, "profile": profile})
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    source = Path(temp_dir) / "registry.json"
+                    source.write_text(json.dumps(registry), encoding="utf-8")
+                    result = subprocess.run(
+                        ["python3", str(GENERATOR), "--registry", str(source), "--check"],
+                        cwd=ROOT, text=True, capture_output=True, check=False,
+                    )
+                self.assertEqual(2, result.returncode)
+                self.assertIn("class and profile are incompatible", result.stderr)
+
     def test_family_schema_covers_every_registered_class_and_profile(self) -> None:
         """Published schema enums and required fields must track the canonical workload roster."""
         manifest = json.loads((ROOT / "ci/llama-canary/family-certified.json").read_text())

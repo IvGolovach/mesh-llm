@@ -461,7 +461,9 @@ pub(crate) fn reject_unsupported_staged_workload(
 ) -> Result<()> {
     // A stage plan (or an explicit layer range) means filtered stage
     // execution, which full-model-only workloads do not support.
-    if config.resident_tensor_names.is_empty() && config.layer_start == 0 {
+    if model.is_dummy()
+        || (config.resident_tensor_names.is_empty() && config.layer_start == 0)
+    {
         return Ok(());
     }
     if model.supports_speech_synthesis() {
@@ -647,6 +649,25 @@ mod tests {
         load_runtime_with_overrides, max_idle_sessions_from_stage_config,
         reject_legacy_serving_package, runtime_config_from_stage_config, runtime_from_loaded_model,
     };
+
+    /// Model-load bypass must not query native metadata through its absent handle.
+    #[test]
+    fn filtered_dummy_model_retains_runtime_load_bypass() {
+        let config = StageConfig {
+            resident_tensor_names: vec!["blk.0.attn_q.weight".to_owned()],
+            lane_count: 2,
+            ..Default::default()
+        };
+        let runtime = super::runtime_from_loaded_model(
+            &config,
+            skippy_runtime::StageModel::new_dummy(),
+            None,
+        )
+        .unwrap();
+        let runtime = runtime.lock().unwrap();
+        assert!(runtime.model.is_dummy());
+        assert_eq!(runtime.lane_count(), 2);
+    }
 
     #[test]
     fn modelless_runtime_reports_zero_kv_pool_so_scheduler_uses_fallback() {

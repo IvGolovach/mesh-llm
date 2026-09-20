@@ -411,11 +411,16 @@ run_full_build() {
 
 # Local CLI compatibility path. CI uses *-build modes and separate family jobs.
 run_certification() {
-  local setting
+  local setting workload_settings
   local workload_env=()
+  workload_settings="$(bash scripts/skippy-workload-oracles-build.sh --print-env "${LLAMA_STAGE_BUILD_DIR:?}-workloads")" || return 1
+  if [[ -z "$workload_settings" ]]; then
+    echo "workload producer returned no certification environment" >&2
+    return 1
+  fi
   while IFS= read -r setting; do
     workload_env+=("$setting")
-  done < <(bash scripts/skippy-workload-oracles-build.sh --print-env "${LLAMA_STAGE_BUILD_DIR:?}-workloads")
+  done <<< "$workload_settings"
   : > "$CERTIFY_LOG"
   echo "trusted candidate gate: certify" | tee -a "$CERTIFY_LOG"
   run_verification_logged "parity manifest validation" "$CERTIFY_LOG" \

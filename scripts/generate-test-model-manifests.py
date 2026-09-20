@@ -214,6 +214,9 @@ def _validate_registry(raw: Any) -> dict[str, Any]:
             profile = _string(certification.get("profile"), f"{field}.certification.profile")
             if profile not in profiles:
                 raise RegistryError(f"{field}.certification.profile is not a family profile")
+            workload_profile = profile in {"workload-smoke", "workload-oracle"}
+            if workload_profile != (workload_class != "causal_generation"):
+                raise RegistryError(f"{field}.certification class and profile are incompatible")
             if profile == "workload-oracle":
                 evidence = _object(certification.get("evidence"), f"{field}.certification.evidence")
                 _exact_keys(evidence, {"fixture", "comparison"}, f"{field}.certification.evidence")

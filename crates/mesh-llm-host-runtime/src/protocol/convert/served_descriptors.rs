@@ -15,6 +15,7 @@ pub(super) fn restore_served_descriptors(
         ann.served_model_descriptors = source
             .served_model_identities
             .iter()
+            .filter(|identity| !identity.model_name.is_empty())
             .map(legacy_descriptor_from_identity)
             .collect();
         crate::mesh::backfill_legacy_descriptors(ann);
@@ -155,6 +156,38 @@ mod tests {
         assert_eq!(descriptor.identity.model_name, "legacy-model");
         assert!(descriptor.identity.is_primary);
         assert!(descriptor.metadata.is_none());
+    }
+
+    /// Empty legacy identities must not suppress a valid name-only fallback.
+    #[test]
+    fn empty_legacy_identities_preserve_name_fallback() {
+        let source = node::PeerAnnouncement {
+            served_model_identities: vec![node::ServedModelIdentity::default()],
+            ..announcement_with_legacy_routes()
+        };
+        let (_, ann) = proto_ann_to_local(&source).unwrap();
+        assert_eq!(ann.served_model_descriptors.len(), 1);
+        assert_eq!(
+            ann.served_model_descriptors[0].identity.model_name,
+            "legacy-model"
+        );
+        assert!(ann.served_model_descriptors[0].identity.is_primary);
+    }
+
+    /// A valid advertised identity stays authoritative beside malformed legacy entries.
+    #[test]
+    fn empty_legacy_identities_do_not_replace_valid_identities() {
+        let mut source = announcement_with_legacy_routes();
+        source
+            .served_model_identities
+            .insert(0, node::ServedModelIdentity::default());
+        source.served_model_identities[1].model_name = "identity-model".to_string();
+        let (_, ann) = proto_ann_to_local(&source).unwrap();
+        assert_eq!(ann.served_model_descriptors.len(), 1);
+        assert_eq!(
+            ann.served_model_descriptors[0].identity.model_name,
+            "identity-model"
+        );
     }
 
     /// Partial invalidity must not drop valid workload metadata or restore extra legacy names.
