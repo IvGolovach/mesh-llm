@@ -177,6 +177,14 @@ impl StageModel {
         }
     }
 
+    /// Whether this handle wraps a real native model. False for the bypass
+    /// dummy used when model loading is disabled; callers that mirror
+    /// native-side load decisions must skip the dummy, since there is no
+    /// native contract to mirror.
+    pub fn has_native_model(&self) -> bool {
+        !self.inner.raw.is_null()
+    }
+
     pub fn output_activation_boundary(&self) -> Option<ActivationBoundaryDesc> {
         let mut raw = skippy_ffi::ActivationBoundaryDesc::default();
         let present = unsafe {

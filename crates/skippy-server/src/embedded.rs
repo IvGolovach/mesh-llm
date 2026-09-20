@@ -49,7 +49,8 @@ pub struct EmbeddedRuntimeStatus {
     pub last_error: Option<String>,
     /// Session stats, possibly a cached snapshot rather than a live read.
     ///
-    /// `lane_count` is authoritative (it comes from `StageConfig`); everything
+    /// `lane_count` is the effective admission bound (the `StageConfig`
+    /// value, clamped to the native encoder-decoder single lane); everything
     /// else may be frozen. Display only — never gate a decision on it.
     pub sessions: RuntimeSessionStats,
     /// When [`Self::sessions`] was actually read, which may be arbitrarily
