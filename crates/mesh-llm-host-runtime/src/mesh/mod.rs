@@ -115,6 +115,9 @@ use connection_reservation::*;
 use connections::*;
 pub(crate) use host_role_claims::{HostRoleClaim, HostRoleClaims};
 use model_identity::*;
+// Main's openai::model_names calls this through the mesh:: path; keep the
+// pub(crate) surface stable across the model_identity move.
+pub(crate) use model_identity::public_model_id_from_identity;
 use node_identity::*;
 #[cfg(test)]
 use operational_logging::capture_mesh_operational_audits;
