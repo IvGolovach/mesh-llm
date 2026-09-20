@@ -24,6 +24,22 @@ distributed projector implementation.
 
 ## Mixed-version routing
 
+### Native runtime compatibility
+
+Non-chat execution advances the native Skippy ABI from **0.1.60 to 0.1.61**.
+The host and packaged native runtime must be updated together: older runtime
+libraries are rejected by the ABI check before mandatory workload exports are
+resolved. This lockstep native-library requirement does not change the additive
+mesh protocol or prevent communication with older mesh peers.
+
+Feature bit 37 (`SKIPPY_FEATURE_NON_CHAT_WORKLOADS`) advertises the workload
+family. The capability probe confirms it only when all four exports are present:
+`skippy_model_workload_info_v1`, `skippy_session_embed`,
+`skippy_session_rerank`, and `skippy_session_encode_prompt`. A missing export
+disables confirmation of that family without disabling unrelated families.
+
+### Peer routing
+
 A model name can be advertised by several nodes running different versions.
 Model discovery accepts any compatible advertisement, but each serving target
 must independently advertise the workload required by the endpoint. The host

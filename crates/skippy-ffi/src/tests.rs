@@ -98,6 +98,25 @@ fn accepts_current_patch_runtime() {
 }
 
 #[test]
+fn rejects_pre_workload_abi_even_with_the_same_major_and_minor() {
+    // 0.1.60 predates the mandatory workload exports in the dynamic facade.
+    assert!(!runtime_abi_supported(version(0, 1, 60)));
+}
+
+#[test]
+#[cfg(not(feature = "dynamic-runtime"))]
+fn linked_native_abi_matches_the_rust_facade() {
+    unsafe extern "C" {
+        fn skippy_abi_version() -> AbiVersion;
+    }
+    // SAFETY: The ABI query takes no arguments and owns no mutable state.
+    let native = unsafe { skippy_abi_version() };
+    assert_eq!(native.major, ABI_VERSION_MAJOR);
+    assert_eq!(native.minor, ABI_VERSION_MINOR);
+    assert_eq!(native.patch, ABI_VERSION_PATCH);
+}
+
+#[test]
 fn rejects_other_patch_runtimes() {
     assert!(!runtime_abi_supported(version(
         ABI_VERSION_MAJOR,

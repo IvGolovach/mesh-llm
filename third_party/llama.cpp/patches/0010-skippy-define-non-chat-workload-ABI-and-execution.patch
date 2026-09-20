@@ -1,4 +1,4 @@
-From 04d75e0f34816fb9647b81391e8b799c97cfc25e Mon Sep 17 00:00:00 2001
+From 0500b8c5e8763cf5c598ec4ef8d5760ae28df277 Mon Sep 17 00:00:00 2001
 From: Mesh-LLM CI <ci@mesh-llm.local>
 Date: Sat, 12 Sep 2026 01:35:50 -0700
 Subject: [PATCH] skippy: define non-chat workload ABI and execution
@@ -31,15 +31,15 @@ index 33a47b244..dc8cbb431 100644
  
  #endif // SKIPPY_H
 diff --git a/include/skippy/common.h b/include/skippy/common.h
-index 5ac737396..133b1d5a2 100644
+index 0265816cc..c0c7e6aa4 100644
 --- a/include/skippy/common.h
 +++ b/include/skippy/common.h
 @@ -46,7 +46,7 @@ extern "C" {
  
  #define SKIPPY_ABI_VERSION_MAJOR 0
  #define SKIPPY_ABI_VERSION_MINOR 1
--#define SKIPPY_ABI_VERSION_PATCH 59
-+#define SKIPPY_ABI_VERSION_PATCH 60
+-#define SKIPPY_ABI_VERSION_PATCH 60
++#define SKIPPY_ABI_VERSION_PATCH 61
  
  #if defined(_MSC_VER)
  #define SKIPPY_DEPRECATED(message) __declspec(deprecated(message))
@@ -54,7 +54,7 @@ index 5ac737396..133b1d5a2 100644
      SKIPPY_STATUS_OK                      = 0,
 diff --git a/include/skippy/workloads.h b/include/skippy/workloads.h
 new file mode 100644
-index 000000000..0ee115741
+index 000000000..6aff32414
 --- /dev/null
 +++ b/include/skippy/workloads.h
 @@ -0,0 +1,93 @@
@@ -152,7 +152,7 @@ index 000000000..0ee115741
 +
 +#endif  // SKIPPY_WORKLOADS_H
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index 0cc6123c7..f675c7232 100644
+index 8726265a6..c0ce3c1ee 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
 @@ -56,6 +56,7 @@ add_library(llama
@@ -639,3 +639,4 @@ index 000000000..d6f9570ba
 +}
 -- 
 2.54.0 (Apple Git-157)
+
