@@ -40,8 +40,9 @@ class TtsOracleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             manifest = root / "producer.json"
-            test_binary = str(root / "candidate tests")
-            manifest.write_text(json.dumps({"files": {"test_binary": {"path": test_binary}}}))
+            test_binary = root / "candidate tests"
+            # Manifest paths are relative to the manifest's own directory.
+            manifest.write_text(json.dumps({"files": {"test_binary": {"path": "candidate tests"}}}))
             env = {
                 "SKIPPY_WORKLOAD_PRODUCER_MANIFEST": str(manifest),
                 "SKIPPY_WORKLOAD_CANDIDATE_BIN_DIR": str(root / "bin"),
@@ -49,7 +50,7 @@ class TtsOracleTests(unittest.TestCase):
             }
             with mock.patch.object(oracle.subprocess, "run") as verify:
                 command = oracle.candidate_test_command(env)
-            self.assertEqual([test_binary, oracle.TEST_NAME, "--exact", "--nocapture", "--test-threads=1"], command)
+            self.assertEqual([str(test_binary), oracle.TEST_NAME, "--exact", "--nocapture", "--test-threads=1"], command)
             verify.assert_called_once_with(
                 [sys.executable, str(ROOT / "scripts/check-skippy-workload-candidate.py"),
                  "--candidate-binary", str(root / "bin/skippy-server"),
