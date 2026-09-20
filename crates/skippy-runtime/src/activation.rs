@@ -1047,10 +1047,6 @@ fn validate_serial_decode_request(request: &IterationBatchRequest<'_>) -> Result
 }
 
 #[cfg(test)]
-#[path = "activation/sampling_tests.rs"]
-mod sampling_tests;
-
-#[cfg(test)]
 mod tests {
     use super::{
         IterationBatchPhase, IterationBatchRequest, collect_iteration_samples,
