@@ -1500,7 +1500,8 @@ fn prepare_cache_routing_body(
 /// [`AutoRouteDecision`] on success or `Err(())` when no served model can
 /// satisfy the media inputs or workload class of the request. Side-effects:
 /// enables auto route hooks on the buffered request if a model is selected,
-/// and records the model hit on the node for activity tracking.async fn prepare_auto_route_decision(
+/// and records the model hit on the node for activity tracking.
+async fn prepare_auto_route_decision(
     request: &mut proxy::BufferedHttpRequest,
     ctx: &IngressRouteContext<'_>,
     descriptors: &[crate::mesh::ServedModelDescriptor],
@@ -1559,7 +1560,8 @@ async fn send_workload_unsupported(
 /// Respond with 422 when the auto-route resolver determines no served model
 /// can satisfy the media inputs (e.g., audio/image) in the request. The
 /// response body names the constraint so the client knows to re-send without
-/// the unsupported media.async fn send_media_unsupported(
+/// the unsupported media.
+async fn send_media_unsupported(
     tcp_stream: ClientStream,
     route_observer: OpenAiRouteObserver<'_>,
 ) -> proxy::RouteDispatchOutcome {
@@ -1597,7 +1599,8 @@ async fn send_auto_route_rejection(
 
 /// Build the sorted list of model names visible to the `/v1/models` endpoint:
 /// the remote-mesh callable set from `targets` merged with `local_models`
-/// (plugin-served and locally-launched models) with duplicates removed.fn callable_models_with_local_served(
+/// (plugin-served and locally-launched models) with duplicates removed.
+fn callable_models_with_local_served(
     targets: &election::ModelTargets,
     local_models: Vec<String>,
 ) -> Vec<String> {
