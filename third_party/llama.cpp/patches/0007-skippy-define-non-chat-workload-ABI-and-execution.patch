@@ -1,7 +1,7 @@
-From 21237c1b8db429dcefacb022e29fac15ad94b63f Mon Sep 17 00:00:00 2001
+From 04d75e0f34816fb9647b81391e8b799c97cfc25e Mon Sep 17 00:00:00 2001
 From: Mesh-LLM CI <ci@mesh-llm.local>
 Date: Sat, 12 Sep 2026 01:35:50 -0700
-Subject: [PATCH 07/11] skippy: define non-chat workload ABI and execution
+Subject: [PATCH] skippy: define non-chat workload ABI and execution
 
 ---
  include/skippy.h                      |   1 +
@@ -10,10 +10,10 @@ Subject: [PATCH 07/11] skippy: define non-chat workload ABI and execution
  src/CMakeLists.txt                    |   1 +
  src/skippy/abi.cpp                    |   3 +-
  src/skippy/rerank_template.h          |  36 +++
- src/skippy/workloads.cpp              | 356 ++++++++++++++++++++++++++
+ src/skippy/workloads.cpp              | 360 ++++++++++++++++++++++++++
  tests/CMakeLists.txt                  |   1 +
  tests/test-skippy-rerank-template.cpp |  34 +++
- 13 files changed, 525 insertions(+), 2 deletions(-)
+ 9 files changed, 525 insertions(+), 2 deletions(-)
  create mode 100644 include/skippy/workloads.h
  create mode 100644 src/skippy/rerank_template.h
  create mode 100644 src/skippy/workloads.cpp
@@ -215,10 +215,10 @@ index 000000000..f0c3b2ea7
 +}
 diff --git a/src/skippy/workloads.cpp b/src/skippy/workloads.cpp
 new file mode 100644
-index 000000000..81ceb3473
+index 000000000..9f8269148
 --- /dev/null
 +++ b/src/skippy/workloads.cpp
-@@ -0,0 +1,356 @@
+@@ -0,0 +1,360 @@
 +#include "skippy/workloads.h"
 +
 +#include "llama.h"
@@ -257,7 +257,11 @@ index 000000000..81ceb3473
 +}
 +
 +bool is_full_model(const skippy_model * model) {
-+    return model != nullptr && !model->config.filter_tensors_on_load;
++    // Mirrors skippy_is_full_model_config(): a stage-plan config (or an
++    // explicit layer range) means filtered stage execution, which non-chat
++    // workloads do not support.
++    return model != nullptr && !skippy_runtime_has_stage_plan(&model->config) &&
++           model->config.layer_start == 0;
 +}
 +
 +enum skippy_status require_workload(skippy_session *          session,
