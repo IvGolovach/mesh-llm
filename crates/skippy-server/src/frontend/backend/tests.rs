@@ -1296,7 +1296,7 @@ fn non_chat_topology_guard_rejects_staged_and_filtered_models() {
     cases.push(upstream);
 
     let mut filtered = full_config.clone();
-    filtered.filter_tensors_on_load = true;
+    filtered.resident_tensor_names = vec!["block.0".to_string()];
     cases.push(filtered);
 
     let mut partial = full_config.clone();

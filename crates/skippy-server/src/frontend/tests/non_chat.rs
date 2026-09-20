@@ -159,7 +159,6 @@ fn workload_stage_config(fixture: &WorkloadFixture) -> StageConfig {
             index: None,
             vram_bytes: None,
         }),
-        filter_tensors_on_load: false,
         native_mtp_enabled: false,
         load_mode: LoadMode::RuntimeSlice,
         bind_addr: "127.0.0.1:0".to_string(),
@@ -469,7 +468,7 @@ fn assert_unsupported_staging(
     expected: &str,
 ) -> Result<()> {
     let mut config = workload_stage_config(fixture);
-    config.filter_tensors_on_load = true;
+    config.resident_tensor_names = vec!["block.0".to_string()];
     config.layer_end = (fixture.layer_end / 2).max(1);
     config.downstream = Some(PeerConfig {
         stage_id: "stage-1".to_string(),

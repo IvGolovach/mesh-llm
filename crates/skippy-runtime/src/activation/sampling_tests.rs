@@ -26,8 +26,6 @@ fn output_disabled_prefill_clears_sampled_token_when_fixture_is_set() -> Result<
             layer_end,
             ctx_size: 256,
             n_gpu_layers: 0,
-            include_output: false,
-            filter_tensors_on_load: false,
             ..RuntimeConfig::default()
         },
     )?;

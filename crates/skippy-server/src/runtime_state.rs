@@ -427,7 +427,9 @@ pub(crate) fn reject_unsupported_staged_workload(
     config: &StageConfig,
     model: &StageModel,
 ) -> Result<()> {
-    if !config.filter_tensors_on_load {
+    // A stage plan (or an explicit layer range) means filtered stage
+    // execution, which full-model-only workloads do not support.
+    if config.resident_tensor_names.is_empty() && config.layer_start == 0 {
         return Ok(());
     }
     if model.supports_speech_synthesis() {
