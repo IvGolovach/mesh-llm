@@ -288,9 +288,11 @@ def restore(args) -> None:
         if sorted(m.name for m in members) != sorted({"producer.json", *referenced}):
             raise ValueError("workload closure archive does not match its producer manifest")
         for member in members:
-            with archive.extractfile(member) as source, (closure_root / member.name).open("wb") as sink:
+            target = closure_root / member.name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with archive.extractfile(member) as source, target.open("wb") as sink:
                 shutil.copyfileobj(source, sink)
-            (closure_root / member.name).chmod(0o755)
+            target.chmod(0o755)
     # check_candidate requires every executable to postdate the stamped native
     # ABI. Extraction mtimes are host-dependent, so pin the stamp into the past
     # and every other member to the same extraction instant.

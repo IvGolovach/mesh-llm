@@ -29,20 +29,29 @@ class WorkloadOracleProducerTests(unittest.TestCase):
             self.assertNotEqual(0, result.returncode)
 
     def test_both_canary_paths_build_then_export_the_same_cpu_producers(self) -> None:
-        """Normal and independent verification must consume the same explicit producer graph."""
-        workflow = (ROOT / ".github/workflows/llama-upstream-canary.yml").read_text()
+        """Repair and independent-verification passes share one producer graph and handoff."""
         repair = (ROOT / "scripts/llama-canary-agent-repair.sh").read_text()
-        for text in [workflow, repair]:
-            self.assertIn("just skippy-workload-oracles-build", text)
-            self.assertIn("skippy-workload-oracles-build.sh --print-env", text)
-        self.assertLess(workflow.index("name: Build pinned CPU workload"), workflow.index("name: Supported-families certification battery"))
+        self.assertIn("just skippy-workload-oracles-build", repair)
+        self.assertIn('--workload-oracles "${LLAMA_STAGE_BUILD_DIR:?}-workloads"', repair)
+        # The repair pass, the pinned/forced pass, and the independent
+        # verification pass all funnel through run_candidate_gates, so one
+        # build phase covers every canary path.
+        self.assertIn("run_full_build || return 1", repair)
+        self.assertGreaterEqual(repair.count("run_candidate_gates"), 3)
+        evidence = (ROOT / "scripts/llama-canary-family-evidence.py").read_text()
+        self.assertIn('WORKLOAD_ORACLES_TAR = "workload-oracles.tar"', evidence)
+        self.assertIn('"workload_oracles_sha256"', evidence)
+        pass_workflow = (ROOT / ".github/workflows/llama-canary-family-pass.yml").read_text()
+        self.assertIn("SKIPPY_WORKLOAD_PRODUCER_MANIFEST", pass_workflow)
         producer = PRODUCER.read_text()
         self.assertIn("-p skippy-topology --bins", producer)
         for contract in ["LLAMA_STAGE_BACKEND=cpu", "LLAMA_STAGE_LINK_MODE=static", "LLAMA_STAGE_WORKLOAD_ORACLE=ON", "CARGO_TARGET_DIR=", "--no-run --message-format=json", "--write-producer", "--source-snapshot"]:
             self.assertIn(contract, producer)
         consumer = (ROOT / "scripts/skippy-workload-certify.sh").read_text()
         self.assertIn("--producer-manifest", consumer)
-        self.assertIn('TEST_COMMAND=("$(jq -er', consumer)
+        self.assertIn("$(jq -er", consumer)
+        # Manifest-recorded paths resolve against the manifest's own directory.
+        self.assertIn('dirname "$PRODUCER_MANIFEST"', consumer)
 
     def test_full_roster_and_cpu_producer_include_non_chat_on_every_trigger(self) -> None:
         """Nightly, pin changes, and forced runs share all six certified workload classes."""
@@ -54,7 +63,9 @@ class WorkloadOracleProducerTests(unittest.TestCase):
         self.assertEqual(6, len(rows))
         self.assertEqual({"embedding", "rerank", "encoder_decoder", "ocr", "speech_synthesis", "speech_recognition"}, {row["class"] for row in rows})
         self.assertTrue(all(row["profile"] == "workload-oracle" for row in rows))
-        workflow = (ROOT / ".github/workflows/llama-upstream-canary.yml").read_text()
-        producer_step = workflow.split("- name: Build pinned CPU workload oracles and candidate\n", 1)[1].split("      - name:", 1)[0]
-        self.assertNotIn("cadence", producer_step)
-        self.assertIn("steps.sha.outputs.certify == 'true'", producer_step)
+        # Family workers consume the restored closure on every trigger; the
+        # pass reusable workflow carries no cadence gating of its own.
+        pass_workflow = (ROOT / ".github/workflows/llama-canary-family-pass.yml").read_text()
+        self.assertIn("SKIPPY_WORKLOAD_ORACLE_SERVER", pass_workflow)
+        self.assertIn("SKIPPY_WORKLOAD_CANDIDATE_BIN_DIR", pass_workflow)
+        self.assertNotIn("cadence", pass_workflow)
