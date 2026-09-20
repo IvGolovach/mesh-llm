@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -12,6 +14,33 @@ RUNNER = ROOT / "scripts" / "skippy-workload-certify.sh"
 
 
 class WorkloadCertifyContractTests(unittest.TestCase):
+    def test_http_config_uses_unsplit_graph_runtime_contract(self) -> None:
+        """Execute the real config generator with CPU/GPU and optional projector inputs."""
+        source = RUNNER.read_text(encoding="utf-8")
+        generator = source.split('python3 - "$CONFIG_PATH"', 1)[1].split("<<'PY'\n", 1)[1].split("\nPY\n", 1)[0]
+        for gpu_layers in (0, 99):
+            for projector in ("", "/fixture/projector.gguf"):
+                with self.subTest(gpu_layers=gpu_layers, projector=projector):
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        config_path = Path(temp_dir) / "stage.json"
+                        result = subprocess.run(
+                            [sys.executable, "-", str(config_path), "fixture-model",
+                             "/fixture/model.gguf", "a" * 64, "12", str(gpu_layers), projector],
+                            input=generator, text=True, capture_output=True, check=False,
+                        )
+                        self.assertEqual(0, result.returncode, result.stderr)
+                        config = json.loads(config_path.read_text(encoding="utf-8"))
+                    self.assertEqual([], config["resident_tensor_names"])
+                    self.assertEqual("", config["execution_contract"])
+                    self.assertNotIn("filter_tensors_on_load", config)
+                    self.assertEqual((0, 12, 1), (config["layer_start"], config["layer_end"], config["lane_count"]))
+                    self.assertEqual("runtime-slice", config["load_mode"])
+                    self.assertEqual("a" * 64, config["source_model_sha256"])
+                    self.assertEqual(projector or None, config.get("projector_path"))
+                    self.assertEqual({"backend_device": "CPU"} if gpu_layers == 0 else None, config["selected_device"])
+                    for offload in ("kv_offload", "op_offload"):
+                        self.assertEqual(False if gpu_layers == 0 else None, config[offload])
+
     def test_cpu_candidate_stamp_is_checked_after_build_without_weakening_reuse(self) -> None:
         """Fresh builds may create their stamp; stale or unbound reused outputs cannot pass."""
         source = RUNNER.read_text(encoding="utf-8")

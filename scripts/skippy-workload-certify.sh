@@ -246,7 +246,9 @@ config = {
     "selected_device": ({"backend_device": "CPU"} if int(n_gpu_layers) == 0 else None),
     "kv_offload": (False if int(n_gpu_layers) == 0 else None),
     "op_offload": (False if int(n_gpu_layers) == 0 else None),
-    "filter_tensors_on_load": False,
+    # An unsplit full-model load does not admit a tensor subset or stage frontier.
+    "resident_tensor_names": [],
+    "execution_contract": "",
     "native_mtp_enabled": False,
     "load_mode": "runtime-slice",
     "bind_addr": "127.0.0.1:0",
