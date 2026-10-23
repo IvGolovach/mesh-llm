@@ -9,6 +9,7 @@ use skippy_inference_api::{
 mod ingress;
 mod native;
 mod reconnect;
+mod release_attestation;
 mod released_peer;
 mod trust;
 

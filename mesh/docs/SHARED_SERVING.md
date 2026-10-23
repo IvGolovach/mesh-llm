@@ -69,6 +69,12 @@ Use `--bind-ip` to select a local QUIC interface for all attachments, each on
 its own ephemeral port. `--lan-only --bind-ip 127.0.0.1` keeps a same-machine
 test entirely on loopback; use an actual LAN address for other machines.
 
+Each attachment loads the running binary's verified embedded release proof
+before joining, including on reconnect. A mesh that requires certified releases
+still enforces its genesis policy and allowed release signers: an unsigned,
+tampered, or untrusted binary cannot join it. The owner keystore supplied through
+`--attestation-key` is separate from this binary certification.
+
 `--gpu-layers 0` selects CPU. `--context-size` and `--concurrency` are host-wide
 native settings, fixed until restart. Increasing either can increase memory
 use. Do not multiply the concurrency by the membership count.

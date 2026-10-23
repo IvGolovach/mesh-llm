@@ -206,6 +206,7 @@ impl SharedServingHost {
             .expect("mesh ownership lock poisoned")
             .retain(|_, owner| owner != name);
         let result = Membership::attach(AttachmentInputs {
+            release_attestation: crate::runtime::release_attestation::load_for_current_binary(),
             config: &record.config,
             state_dir: &self.config.state_dir,
             backend: self.backend.clone(),

@@ -65,6 +65,7 @@ pub(super) struct AttachmentInputs<'a> {
     pub bind_ip: Option<std::net::IpAddr>,
     pub ingress_slots: Arc<tokio::sync::Semaphore>,
     pub ingress_capacity: usize,
+    pub release_attestation: Result<crate::runtime::release_attestation::LoadedReleaseAttestation>,
 }
 
 impl Membership {
@@ -110,6 +111,8 @@ impl Membership {
             }),
         })
         .await?;
+        crate::runtime::release_attestation::attach_to_node(&node, inputs.release_attestation)
+            .await;
         let member = inputs.admission.register(inputs.queue_capacity);
         let backend = Arc::new(MembershipBackend::new(
             inputs.backend,
