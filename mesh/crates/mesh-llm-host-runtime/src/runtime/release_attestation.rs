@@ -27,7 +27,7 @@ pub(super) async fn attach_to_node(
         Ok(loaded) => loaded,
         Err(error) => {
             tracing::warn!(
-                error = %error,
+                error = %format!("{error:#}"),
                 "failed to load local embedded release attestation; continuing without advertising one"
             );
             return;
@@ -140,5 +140,42 @@ mod tests {
             .expect("embedded attestation")
             .verify()
             .expect("embedded attestation should verify as canonical protocol attestation");
+    }
+
+    #[tokio::test]
+    async fn attach_to_node_logs_binary_read_error_chain() {
+        use tracing::instrument::WithSubscriber;
+
+        let directory = tempfile::tempdir().expect("tempdir");
+        let binary_path = directory.path().join("missing-binary");
+        let error = load_for_binary_path(&binary_path, &ReleaseSignerTrustStore::default())
+            .expect_err("missing binary must fail to load");
+        let source_error = error.root_cause().to_string();
+        let log = tempfile::NamedTempFile::new().expect("log file");
+        let subscriber = tracing_subscriber::fmt()
+            .json()
+            .with_ansi(false)
+            .with_writer(log.reopen().expect("log writer"))
+            .finish();
+        let node = crate::mesh::Node::new_for_tests(crate::mesh::NodeRole::Client)
+            .await
+            .expect("test node");
+
+        attach_to_node(&node, Err(error))
+            .with_subscriber(subscriber)
+            .await;
+        node.close_endpoint().await;
+
+        let record: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(log.path()).expect("read log"))
+                .expect("single structured warning");
+        assert_eq!(record["level"], "WARN");
+        assert_eq!(
+            record["fields"]["message"],
+            "failed to load local embedded release attestation; continuing without advertising one"
+        );
+        let logged_error = record["fields"]["error"].as_str().expect("error field");
+        assert!(logged_error.contains("failed to verify embedded release attestation"));
+        assert!(logged_error.contains(&source_error), "{logged_error}");
     }
 }
