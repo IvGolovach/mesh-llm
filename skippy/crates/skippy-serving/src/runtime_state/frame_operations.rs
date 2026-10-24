@@ -369,11 +369,35 @@ impl RuntimeState {
         &mut self,
         requests: &[RuntimeIterationBatchRequest<'_>],
     ) -> Result<IterationBatchOutput> {
+        self.iteration_batch_with_readouts(requests, None)
+            .map(|(outputs, _)| outputs)
+    }
+
+    pub fn iteration_batch_scored(
+        &mut self,
+        requests: &[RuntimeIterationBatchRequest<'_>],
+        selections: &[&[i32]],
+    ) -> Result<(IterationBatchOutput, Vec<Vec<f32>>)> {
+        anyhow::ensure!(
+            requests.len() == selections.len(),
+            "readout request count mismatch"
+        );
+        self.iteration_batch_with_readouts(requests, Some(selections))
+    }
+
+    fn iteration_batch_with_readouts(
+        &mut self,
+        requests: &[RuntimeIterationBatchRequest<'_>],
+        selections: Option<&[&[i32]]>,
+    ) -> Result<(IterationBatchOutput, Vec<Vec<f32>>)> {
         if requests.is_empty() {
-            return Ok(IterationBatchOutput {
-                request_outputs: Vec::new(),
-                samples: Vec::new(),
-            });
+            return Ok((
+                IterationBatchOutput {
+                    request_outputs: Vec::new(),
+                    samples: Vec::new(),
+                },
+                Vec::new(),
+            ));
         }
         let mut unique = std::collections::BTreeSet::new();
         for request in requests {
@@ -419,7 +443,13 @@ impl RuntimeState {
                     phase: request.phase,
                 })
                 .collect::<Vec<_>>();
-            StageSession::iteration_batch_sampled(&mut iteration_requests)
+            match selections {
+                Some(selections) => {
+                    StageSession::iteration_batch_scored(&mut iteration_requests, selections)
+                }
+                None => StageSession::iteration_batch_sampled(&mut iteration_requests)
+                    .map(|outputs| (outputs, Vec::new())),
+            }
         };
 
         for (session_id, lane_session) in lane_sessions {

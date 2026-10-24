@@ -1,16 +1,16 @@
 ---
 title: Decisions API
-description: Use Mesh's Decisions endpoint with System One models
+description: Ask independent typed questions with System One and causal models
 ---
 
 # Decisions API
 
-`POST /v1/decisions` asks a System One model to answer questions about
+`POST /v1/decisions` asks a capable loaded model to answer questions about
 text. A request can combine a yes/no `predicate`, a `choice` from supplied
 options, and a numeric `score`. Mesh serves the request through a local or
 reachable mesh model; it does not send the input to OpenAI.
 
-The request and answer fields follow [OpenAI's Decisions API](https://developers.openai.com/api/docs/guides/decisions) for text input. User-message text parts are joined into text evidence for the local model. This backend does not yet evaluate images or produce refusal answers. Model IDs identify locally loaded System One models, rather than OpenAI's `gpt-6-luna`.
+The request and answer fields follow [OpenAI's Decisions API](https://developers.openai.com/api/docs/guides/decisions) for text input. User-message text parts are joined into text evidence for the local model. This backend does not yet evaluate images or produce refusal answers. Model IDs identify loaded models advertising `system_one`, rather than OpenAI's `gpt-6-luna`.
 
 ## Start and find a model
 
@@ -91,6 +91,15 @@ the model and input:
 `score` is numeric while each probability entry carries the option's zero-based
 `value` and supplied `label`. `output_tokens` is zero because System One does
 not generate text; the usage fields do not represent full compute cost.
+
+Causal GGUF backends add `readout` to each answer and a top-level
+`readout_usage`. The method distinguishes single-token prefill reads from
+multi-token candidate likelihoods; ordered score arrays correspond to the
+original choices. Questions remain independent and retain request order even
+when scheduled concurrently. These probabilities are relative candidate mass,
+not calibrated truth. Laya and DiffusionGemma responses retain their existing
+shape. See the [causal decision guide](https://github.com/Mesh-LLM/mesh-llm/blob/main/skippy/docs/CAUSAL_DECISIONS.md)
+for exact scoring, accounting and compatibility rules.
 
 ## Ask one question
 

@@ -224,6 +224,7 @@ fn replay_explicit_builds_retained_skippy_gates_and_runs_bounded_filtered_ctest(
     }
     for target in [
         "skippy-graph-build-inputs",
+        "skippy-selected-logits",
         "skippy-hardware-application-probe",
         "skippy-model-fixture-generator",
         "skippy-model-loader-accounting",

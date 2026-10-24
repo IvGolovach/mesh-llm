@@ -202,6 +202,12 @@ impl StageModel {
         raw.try_into()
     }
 
+    /// A loaded causal graph can read next-token scores without sampling.
+    /// This is independent of whether this worker owns the terminal head.
+    pub fn supports_causal_readout(&self) -> bool {
+        unsafe { skippy_ffi::skippy_model_supports_causal_readout(self.inner.raw) }
+    }
+
     fn from_opened_raw(
         raw: *mut RawModel,
         config: &RuntimeConfig,

@@ -117,6 +117,7 @@ fn message(
         activation,
         tokens: token_ids,
         positions: Vec::new(),
+        readout_tokens: Vec::new(),
         raw_bytes: Vec::new(),
     })
 }

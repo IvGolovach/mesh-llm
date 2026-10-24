@@ -117,6 +117,8 @@ unsafe extern "C" {
 
     pub fn skippy_model_llama_model(model: *const Model) -> *const Opaque;
 
+    pub fn skippy_model_supports_causal_readout(model: *const Model) -> bool;
+
     pub fn llama_model_is_recurrent(model: *const Opaque) -> bool;
 
     /// Borrow the vocabulary of a llama model.

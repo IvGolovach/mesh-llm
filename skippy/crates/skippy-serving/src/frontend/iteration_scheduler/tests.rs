@@ -14,6 +14,7 @@ fn direct_iteration(session_id: &str, token_count: usize) -> DirectIteration {
         sampling: None,
         input: None,
         sample_last: true,
+        selected_tokens: None,
         phase: IterationBatchPhase::Prefill,
         deadline: None,
         cancellation: None,

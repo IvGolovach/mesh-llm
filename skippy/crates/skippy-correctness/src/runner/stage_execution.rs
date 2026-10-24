@@ -144,6 +144,7 @@ pub(in crate::runner) fn binary_decode_message(
         session_id: args.session_id,
         sampling: None,
         chat_sampling_metadata: None,
+        readout_tokens: Vec::new(),
         tokens: vec![args.token_id],
         positions: vec![args.decode_step],
         activation,

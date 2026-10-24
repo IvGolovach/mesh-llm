@@ -1,6 +1,7 @@
 mod activation;
 mod activation_codec;
 mod codec;
+mod readout;
 mod types;
 
 pub use activation::{
@@ -151,6 +152,7 @@ mod tests {
             kind: WireReplyKind::PredictedToken,
             predicted: 42,
             predicted_tokens: vec![42],
+            log_probabilities: Vec::new(),
             native_mtp_draft: Some(StageNativeMtpDraft {
                 token_ids: vec![43, 44],
                 proposal_compute_us: 12_345,
@@ -171,6 +173,7 @@ mod tests {
             kind: WireReplyKind::PredictedTokens,
             predicted: 42,
             predicted_tokens: vec![42, 7, 9],
+            log_probabilities: Vec::new(),
             native_mtp_draft: Some(StageNativeMtpDraft {
                 token_ids: vec![43, 44, 45],
                 proposal_compute_us: 99,
@@ -370,6 +373,7 @@ mod tests {
             tokens: vec![11],
             positions: Vec::new(),
             activation: encode_activation_frame(codec, &frame.desc, &frame.payload).unwrap(),
+            readout_tokens: Vec::new(),
             raw_bytes: Vec::new(),
         }
     }
@@ -558,6 +562,7 @@ mod tests {
             tokens: vec![1001, 1002, 1003, 1004],
             positions: Vec::new(),
             activation: Vec::new(),
+            readout_tokens: Vec::new(),
             raw_bytes: Vec::new(),
         };
 
@@ -588,6 +593,7 @@ mod tests {
             tokens: vec![3],
             positions: Vec::new(),
             activation: Vec::new(),
+            readout_tokens: Vec::new(),
             raw_bytes: Vec::new(),
         };
         assert_eq!(decode.authoritative_session_position(), Some(17));
@@ -656,6 +662,7 @@ mod tests {
             tokens: vec![1, 2],
             positions: vec![0],
             activation: encode_raw_activation_frame(&frame).unwrap(),
+            readout_tokens: Vec::new(),
             raw_bytes: Vec::new(),
         };
 
@@ -799,6 +806,7 @@ mod tests {
             tokens: vec![11, 22],
             positions: Vec::new(),
             activation: Vec::new(),
+            readout_tokens: Vec::new(),
             raw_bytes: Vec::new(),
         };
         let mut bytes = Vec::new();
@@ -829,6 +837,7 @@ mod tests {
             tokens: Vec::new(),
             positions: Vec::new(),
             activation: Vec::new(),
+            readout_tokens: Vec::new(),
             raw_bytes: Vec::new(),
         };
 
@@ -892,6 +901,7 @@ mod tests {
             tokens: (0..value_count).collect(),
             positions: (10_000..10_000 + value_count).collect(),
             activation: Vec::new(),
+            readout_tokens: Vec::new(),
             raw_bytes: Vec::new(),
         };
         let calls = Rc::new(Cell::new(0));
@@ -964,6 +974,7 @@ mod tests {
             tokens,
             positions: Vec::new(),
             activation: Vec::new(),
+            readout_tokens: Vec::new(),
             raw_bytes: Vec::new(),
         };
         let mut bytes = Vec::new();
@@ -994,6 +1005,7 @@ mod tests {
             tokens: Vec::new(),
             positions: Vec::new(),
             activation: Vec::new(),
+            readout_tokens: Vec::new(),
             raw_bytes: Vec::new(),
         };
         let mut bytes = Vec::new();
@@ -1021,6 +1033,7 @@ mod tests {
             tokens: Vec::new(),
             positions: Vec::new(),
             activation: Vec::new(),
+            readout_tokens: Vec::new(),
             raw_bytes: Vec::new(),
         };
         let mut bytes = Vec::new();
@@ -1049,6 +1062,7 @@ mod tests {
             tokens: Vec::new(),
             positions: Vec::new(),
             activation: Vec::new(),
+            readout_tokens: Vec::new(),
             raw_bytes: vec![1, 2, 3, 4],
         };
         let mut bytes = Vec::new();
@@ -1092,6 +1106,7 @@ mod tests {
             tokens: Vec::new(),
             positions: Vec::new(),
             activation: Vec::new(),
+            readout_tokens: Vec::new(),
             raw_bytes: vec![1, 2, 3, 4],
         };
         let mut bytes = Vec::new();
@@ -1116,6 +1131,7 @@ mod tests {
             tokens: Vec::new(),
             positions: Vec::new(),
             activation: Vec::new(),
+            readout_tokens: Vec::new(),
             raw_bytes: Vec::new(),
         };
         let mut bytes = Vec::new();

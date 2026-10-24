@@ -1,5 +1,5 @@
-//! OpenAI Decisions wire contract over the local, text-only System One backend.
-//! https://developers.openai.com/api/docs/guides/decisions
+//! OpenAI Decisions wire contract with model-specific System One readouts.
+//! <https://developers.openai.com/api/docs/guides/decisions>
 
 use std::collections::{BTreeMap, HashSet};
 
@@ -313,8 +313,16 @@ impl DecisionsRequest {
         }).collect::<Result<Vec<_>, InferenceError>>()?;
         Ok(DecisionsResponse {
             model: result.model,
-            answers,
+            answers: answers
+                .into_iter()
+                .enumerate()
+                .map(|(index, answer)| DecisionsAnswerEntry {
+                    answer,
+                    readout: result.readouts.get(&format!("question_{index}")).cloned(),
+                })
+                .collect(),
             usage: DecisionsUsage::from(result.usage),
+            readout_usage: result.readout_usage,
         })
     }
 }
@@ -322,8 +330,18 @@ impl DecisionsRequest {
 #[derive(Debug, Serialize)]
 pub(crate) struct DecisionsResponse {
     model: String,
-    answers: Vec<DecisionsAnswer>,
+    answers: Vec<DecisionsAnswerEntry>,
     usage: DecisionsUsage,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    readout_usage: Option<crate::system_one::DecisionReadoutUsage>,
+}
+
+#[derive(Debug, Serialize)]
+struct DecisionsAnswerEntry {
+    #[serde(flatten)]
+    answer: DecisionsAnswer,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    readout: Option<crate::system_one::DecisionReadout>,
 }
 
 #[derive(Debug, Serialize)]
@@ -394,5 +412,63 @@ impl From<SystemOneUsage> for DecisionsUsage {
             },
             total_tokens: usage.input_tokens.saturating_add(usage.output_tokens),
         }
+    }
+}
+
+#[cfg(test)]
+mod readout_tests {
+    use super::*;
+    use crate::system_one::{DecisionReadout, DecisionReadoutUsage};
+
+    #[test]
+    fn restores_original_question_order_for_answers_and_evidence() {
+        let request: DecisionsRequest = serde_json::from_value(serde_json::json!({
+            "model": "test", "input": "shared state", "questions": (0..12).map(|i| serde_json::json!({
+                "type": "predicate", "name": format!("q{i}"), "instructions": "Is this relevant?"
+            })).collect::<Vec<_>>()
+        })).unwrap();
+        let usage = DecisionReadoutUsage {
+            evaluated_tokens: 120,
+            cached_tokens: 60,
+            cache_preparation_tokens: 10,
+        };
+        let result = SystemOneResponse {
+            model: "test".into(),
+            answers: (0..12).map(|i| (format!("question_{i}"), SystemOneAnswer::Noul { noul: i as f32 / 12.0 })).collect(),
+            usage: SystemOneUsage { input_tokens: 180, output_tokens: 0 },
+            readout_usage: Some(usage),
+            readouts: (0..12).map(|i| (format!("question_{i}"), DecisionReadout {
+                method: "selected_token_logits", normalization: "sum_log_probabilities", probability_semantics: "relative_candidate_probability_not_calibrated_truth",
+                candidate_log_probabilities: vec![-1.0, -2.0], candidate_token_counts: vec![1, 1], evaluated_tokens: i, cached_tokens: 5,
+            })).collect(),
+        };
+        let json = serde_json::to_value(request.response(result).unwrap()).unwrap();
+        for i in 0..12 {
+            assert_eq!(json["answers"][i]["name"], format!("q{i}"));
+            assert_eq!(json["answers"][i]["readout"]["evaluated_tokens"], i);
+        }
+        assert_eq!(json["readout_usage"], serde_json::to_value(usage).unwrap());
+        assert_eq!(json["usage"]["output_tokens"], 0);
+    }
+
+    #[test]
+    fn legacy_adapter_responses_do_not_gain_causal_evidence() {
+        let request: DecisionsRequest = serde_json::from_value(serde_json::json!({
+            "model": "legacy", "input": "state", "questions": [{"type": "predicate", "instructions": "yes?"}]
+        })).unwrap();
+        let result = SystemOneResponse {
+            model: "legacy".into(),
+            answers: [("question_0".into(), SystemOneAnswer::Noul { noul: 0.75 })].into(),
+            usage: SystemOneUsage {
+                input_tokens: 5,
+                output_tokens: 0,
+            },
+            readouts: BTreeMap::new(),
+            readout_usage: None,
+        };
+        let json = serde_json::to_value(request.response(result).unwrap()).unwrap();
+        assert!(json.get("readout_usage").is_none());
+        assert!(json["answers"][0].get("readout").is_none());
+        assert_eq!(json["answers"][0]["probability"], 0.75);
     }
 }

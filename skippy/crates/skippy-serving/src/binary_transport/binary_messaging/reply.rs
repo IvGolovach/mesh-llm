@@ -139,6 +139,7 @@ mod tests {
             tokens: vec![10, 11, 12],
             positions: Vec::new(),
             activation: Vec::new(),
+            readout_tokens: Vec::new(),
             raw_bytes: Vec::new(),
         };
 

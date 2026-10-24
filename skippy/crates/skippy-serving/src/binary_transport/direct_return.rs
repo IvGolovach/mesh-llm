@@ -734,6 +734,7 @@ fn prediction_return_open_message(request_id: u64, session_id: u64) -> StageWire
         tokens: Vec::new(),
         positions: Vec::new(),
         activation: Vec::new(),
+        readout_tokens: Vec::new(),
         raw_bytes: Vec::new(),
     }
 }
@@ -969,6 +970,7 @@ mod tests {
             kind: WireReplyKind::PredictedToken,
             predicted: 42,
             predicted_tokens: vec![42],
+            log_probabilities: Vec::new(),
             native_mtp_draft: Some(skippy_protocol::binary::StageNativeMtpDraft {
                 token_ids: vec![43],
                 proposal_compute_us: 123,

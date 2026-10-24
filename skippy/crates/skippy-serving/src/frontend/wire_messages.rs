@@ -76,6 +76,7 @@ impl ReusableDecodeMessage {
                 tokens: Vec::with_capacity(args.sideband_capacity.max(1)),
                 positions: Vec::new(),
                 activation: Vec::new(),
+                readout_tokens: Vec::new(),
                 raw_bytes: Vec::new(),
             },
             base_pos_start: args.base_pos_start,
@@ -171,6 +172,7 @@ pub(super) fn embedded_verify_window_message(
         tokens: args.tokens.to_vec(),
         positions: Vec::new(),
         activation: Vec::new(),
+        readout_tokens: Vec::new(),
         raw_bytes: Vec::new(),
     })
 }
@@ -203,6 +205,7 @@ pub(super) fn discard_stale_windows_message(
         tokens: vec![min_window_id, max_window_id],
         positions: Vec::new(),
         activation: Vec::new(),
+        readout_tokens: Vec::new(),
         raw_bytes: Vec::new(),
     })
 }
@@ -228,6 +231,7 @@ pub(super) fn retire_verify_window_message(
         tokens: Vec::new(),
         positions: Vec::new(),
         activation: Vec::new(),
+        readout_tokens: Vec::new(),
         raw_bytes: Vec::new(),
     })
 }
@@ -286,6 +290,7 @@ pub(super) fn embedded_prefill_message(
         tokens: chunk.tokens.to_vec(),
         positions: Vec::new(),
         activation: Vec::new(),
+        readout_tokens: Vec::new(),
         raw_bytes: Vec::new(),
     })
 }
@@ -314,6 +319,7 @@ pub(super) fn embedded_prefix_cache_message(
         tokens: tokens.to_vec(),
         positions: Vec::new(),
         activation: Vec::new(),
+        readout_tokens: Vec::new(),
         raw_bytes: Vec::new(),
     })
 }
@@ -359,6 +365,7 @@ pub(super) fn embedded_restore_prefill_decode_message(
         tokens,
         positions: Vec::new(),
         activation: Vec::new(),
+        readout_tokens: Vec::new(),
         raw_bytes: Vec::new(),
     })
 }
@@ -411,6 +418,7 @@ pub(super) fn multimodal_prefill_message(
         tokens: args.tokens,
         positions: args.positions,
         activation: Vec::new(),
+        readout_tokens: Vec::new(),
         raw_bytes: Vec::new(),
     })
 }

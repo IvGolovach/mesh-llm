@@ -303,6 +303,7 @@ mod tests {
             tokens,
             positions: Vec::new(),
             activation: Vec::new(),
+            readout_tokens: Vec::new(),
             raw_bytes: Vec::new(),
         }
     }

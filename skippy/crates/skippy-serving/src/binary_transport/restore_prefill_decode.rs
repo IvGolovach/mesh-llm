@@ -130,6 +130,7 @@ pub(super) fn handle_binary_restore_prefill_decode_control(
                 kind: WireReplyKind::Ack,
                 predicted: 0,
                 predicted_tokens: Vec::new(),
+                log_probabilities: Vec::new(),
                 native_mtp_draft: None,
                 window: Default::default(),
                 stats: control_stats,
@@ -274,6 +275,7 @@ pub(super) fn handle_binary_restore_prefill_decode_control(
             kind: WireReplyKind::PredictedToken,
             predicted: predicted_token,
             predicted_tokens: vec![predicted_token],
+            log_probabilities: Vec::new(),
             native_mtp_draft: None,
             window: Default::default(),
             stats: control_stats,
@@ -403,6 +405,7 @@ pub(super) fn restore_prefill_decode_as_decode_message(
         tokens: vec![current_token],
         positions: Vec::new(),
         activation: Vec::new(),
+        readout_tokens: Vec::new(),
         raw_bytes: Vec::new(),
     }
 }
@@ -461,6 +464,7 @@ mod tests {
             tokens: vec![101, 102, 103, 104],
             positions: vec![0, 1, 2, 3],
             activation: vec![1, 2, 3, 4],
+            readout_tokens: Vec::new(),
             raw_bytes: vec![5, 6, 7, 8],
         };
 

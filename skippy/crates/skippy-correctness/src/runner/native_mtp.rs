@@ -300,6 +300,7 @@ mod tests {
             native_mtp_draft,
             window: Default::default(),
             stats: StageReplyStats::default(),
+            log_probabilities: Vec::new(),
         }
     }
 

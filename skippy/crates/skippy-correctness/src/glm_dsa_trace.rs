@@ -775,6 +775,7 @@ fn run_prompt(args: &GlmDsaStage0TraceArgs, prompt_log_path: &Path) -> Result<Tr
         session_id: 1,
         sampling: None,
         chat_sampling_metadata: None,
+        readout_tokens: Vec::new(),
         tokens,
         positions: Vec::new(),
         activation: Vec::new(),

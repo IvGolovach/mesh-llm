@@ -481,6 +481,8 @@ impl InferenceBackend for FakeBackend {
                 })
                 .collect();
             return Ok(SystemOneResponse {
+                readouts: Default::default(),
+                readout_usage: None,
                 model: request.model,
                 answers,
                 usage: crate::SystemOneUsage {
@@ -491,6 +493,8 @@ impl InferenceBackend for FakeBackend {
         }
         if request.questions.contains_key("urgent") {
             return Ok(SystemOneResponse {
+                readouts: Default::default(),
+                readout_usage: None,
                 model: request.model,
                 answers: [
                     (
@@ -532,6 +536,8 @@ impl InferenceBackend for FakeBackend {
             });
         }
         Ok(SystemOneResponse {
+            readouts: Default::default(),
+            readout_usage: None,
             model: request.model,
             answers: [(
                 "safe".to_string(),

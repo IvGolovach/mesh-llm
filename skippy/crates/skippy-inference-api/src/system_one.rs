@@ -56,6 +56,33 @@ pub struct SystemOneResponse {
     pub model: String,
     pub answers: BTreeMap<String, SystemOneAnswer>,
     pub usage: SystemOneUsage,
+    /// Causal readout evidence keyed by question. Absent for existing adapters.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub readouts: BTreeMap<String, DecisionReadout>,
+    /// Physical execution work, including shared-prefix preparation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub readout_usage: Option<DecisionReadoutUsage>,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, PartialEq, Eq)]
+pub struct DecisionReadoutUsage {
+    pub evaluated_tokens: usize,
+    pub cached_tokens: usize,
+    pub cache_preparation_tokens: usize,
+}
+
+/// Candidate likelihood is conditional on the supplied prompt and labels.
+/// It is not a calibrated probability that an answer is true.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct DecisionReadout {
+    pub method: &'static str,
+    pub normalization: &'static str,
+    pub probability_semantics: &'static str,
+    /// Scores and token counts follow the original candidate order.
+    pub candidate_log_probabilities: Vec<f64>,
+    pub candidate_token_counts: Vec<usize>,
+    pub evaluated_tokens: usize,
+    pub cached_tokens: usize,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

@@ -57,19 +57,9 @@ pub(super) async fn run(client: &Client<'_>, cases: &mut Vec<Value>) -> Result<(
         "invalid_request_error",
         "method_not_allowed",
     )?;
-    let (status, body) = client.json(&base).await?;
-    error(status, &body, 502, "server_error", "service_unavailable")?;
-    let message = body["error"]["message"]
-        .as_str()
-        .ok_or(Failure::Case("architecture refusal missing message"))?;
-    if !["DiffusionGemma", "System One", "system-one"]
-        .iter()
-        .any(|name| message.contains(name))
-    {
-        return Err(Failure::Case(
-            "architecture refusal must name System One capability",
-        ));
-    }
+    let request = super::causal_readout::request(model);
+    let (status, body) = client.json(&request).await?;
+    super::causal_readout::validate(status, &body, &request)?;
     cases.push(json!({"name":"contract-matrix","status":"pass","cases":14}));
     Ok(())
 }

@@ -344,6 +344,7 @@ pub(in crate::binary_transport) fn estimated_reply_wire_bytes(
         WireReplyKind::Ack => 0,
         WireReplyKind::PredictedToken => 1,
         WireReplyKind::PredictedTokens => predicted_token_count,
+        WireReplyKind::TokenScores => predicted_token_count + 1,
     };
     REPLY_HEADER_BYTES + token_count * std::mem::size_of::<i32>() + REPLY_STATS_BYTES
 }
@@ -667,7 +668,8 @@ pub(crate) fn run_binary_stage_message(
             );
             Ok((predicted, predicted_tokens, output, draft))
         }
-        WireMessageKind::Stop
+        WireMessageKind::PrefillReadout
+        | WireMessageKind::Stop
         | WireMessageKind::StateImport
         | WireMessageKind::StateExport
         | WireMessageKind::ConfigureGeneration
@@ -959,6 +961,7 @@ pub(in crate::binary_transport) fn first_decode_message_with_full_prompt_sideban
         tokens: vec![101, 102, 103, 104],
         positions: Vec::new(),
         activation: Vec::new(),
+        readout_tokens: Vec::new(),
         raw_bytes: Vec::new(),
     }
 }
@@ -1193,6 +1196,7 @@ mod tests {
             tokens: Vec::new(),
             positions: Vec::new(),
             activation: Vec::new(),
+            readout_tokens: Vec::new(),
             raw_bytes: Vec::new(),
         }
     }

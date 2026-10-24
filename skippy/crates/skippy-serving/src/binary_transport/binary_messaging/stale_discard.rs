@@ -131,6 +131,7 @@ mod tests {
             tokens: Vec::new(),
             positions: Vec::new(),
             activation: Vec::new(),
+            readout_tokens: Vec::new(),
             raw_bytes: Vec::new(),
         };
         registry.record_message(&message);
