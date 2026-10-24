@@ -2,6 +2,7 @@ use super::*;
 use futures_util::poll;
 
 #[tokio::test]
+/// A second membership must wait for the same host slot, including worker-held lease clones.
 async fn aggregate_capacity_is_not_multiplied_by_memberships() {
     let admission = Admission::new(1, 2).unwrap();
     let a = admission.register(1);
@@ -28,6 +29,7 @@ async fn aggregate_capacity_is_not_multiplied_by_memberships() {
 }
 
 #[tokio::test]
+/// Interleave ready memberships while preserving FIFO order inside each membership.
 async fn pending_memberships_take_round_robin_turns() {
     let admission = Admission::new(1, 8).unwrap();
     let a = admission.register(8);
@@ -55,6 +57,7 @@ async fn pending_memberships_take_round_robin_turns() {
 }
 
 #[tokio::test]
+/// Abandoned waiters must reclaim queue budget without affecting admitted execution.
 async fn dropped_and_cancelled_waiters_immediately_release_queue_budget() {
     let admission = Admission::new(1, 1).unwrap();
     let a = admission.register(1);
@@ -76,6 +79,7 @@ async fn dropped_and_cancelled_waiters_immediately_release_queue_budget() {
 }
 
 #[tokio::test]
+/// Retirement cancels only its own requests and releases capacity after the final lease.
 async fn detach_cancels_only_its_member_and_holds_capacity_until_worker_exits() {
     let admission = Admission::new(2, 2).unwrap();
     let a = admission.register(2);
@@ -106,6 +110,7 @@ async fn detach_cancels_only_its_member_and_holds_capacity_until_worker_exits() 
 }
 
 #[tokio::test]
+/// Pausing rejects queued work without cancelling execution, then permits a later resume.
 async fn pause_drains_in_flight_but_rejects_waiters_and_can_resume() {
     let admission = Admission::new(1, 1).unwrap();
     let a = admission.register(1);
@@ -133,6 +138,7 @@ async fn pause_drains_in_flight_but_rejects_waiters_and_can_resume() {
 }
 
 #[tokio::test]
+/// A zero-length queue still admits available capacity but rejects any waiting request.
 async fn zero_queue_allows_immediate_work_but_never_waits() {
     let admission = Admission::new(1, 0).unwrap();
     let member = admission.register(0);
@@ -156,6 +162,7 @@ async fn zero_queue_allows_immediate_work_but_never_waits() {
 }
 
 #[tokio::test]
+/// The host queue limit must win even when individual memberships have room.
 async fn aggregate_queue_limit_applies_even_with_spare_member_budgets() {
     let admission = Admission::new(1, 1).unwrap();
     let a = admission.register(8);

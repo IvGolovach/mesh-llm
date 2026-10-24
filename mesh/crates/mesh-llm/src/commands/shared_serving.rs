@@ -4,6 +4,8 @@ use mesh_llm_host_runtime::sdk::shared_serving::{
     ServingMembershipConfig, SharedServingConfig, run_shared_serving,
 };
 
+/// Validate named trust-store assignments, translate CLI inputs and start shared serving.
+/// Duplicate trust assignments or references to unconfigured memberships are rejected.
 pub(super) async fn run(args: &SharedServingArgs) -> Result<()> {
     let mut trust = std::collections::BTreeMap::new();
     for named in &args.membership_trust {

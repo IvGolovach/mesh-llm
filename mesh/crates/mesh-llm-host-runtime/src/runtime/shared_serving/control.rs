@@ -21,6 +21,8 @@ struct ControlState {
     token_hash: [u8; 32],
 }
 
+/// Verify the exact Bearer credential by comparing its SHA-256 digest.
+/// Compare every digest byte without stopping at the first mismatch.
 fn authorized(headers: &HeaderMap, expected: &[u8; 32]) -> bool {
     let Some(token) = headers
         .get(axum::http::header::AUTHORIZATION)
@@ -37,6 +39,7 @@ fn authorized(headers: &HeaderMap, expected: &[u8; 32]) -> bool {
         == 0
 }
 
+/// Return host and membership status only after operator authentication.
 async fn status(
     State(state): State<ControlState>,
     headers: HeaderMap,
@@ -47,6 +50,8 @@ async fn status(
     Ok(Json(state.host.status().await))
 }
 
+/// Authenticate and dispatch one membership lifecycle operation.
+/// Return sanitized HTTP errors while retaining details in local diagnostics.
 async fn action(
     State(state): State<ControlState>,
     Path((name, action)): Path<(String, String)>,
@@ -71,6 +76,8 @@ async fn action(
     })
 }
 
+/// Build the operator-only status and lifecycle routes with a hashed credential.
+/// The caller is responsible for binding this router to loopback.
 pub(super) fn router(host: Arc<SharedServingHost>, token: &str) -> Router {
     Router::new()
         .route("/api/shared-serving", get(status))
@@ -126,6 +133,7 @@ pub async fn run_shared_serving(config: SharedServingConfig, management_port: u1
     result
 }
 
+/// Wait for Ctrl-C or, on Unix, SIGTERM before draining the shared host.
 async fn shutdown_signal() -> Result<()> {
     #[cfg(unix)]
     {
@@ -146,6 +154,7 @@ mod tests {
     use super::*;
 
     #[test]
+    /// Reject absent or incorrect credentials and accept the configured operator token.
     fn control_requires_the_operator_token() {
         let hash = Sha256::digest(b"operator-token").into();
         let mut headers = HeaderMap::new();

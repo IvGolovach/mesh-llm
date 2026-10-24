@@ -142,6 +142,7 @@ mod tests {
     use super::*;
 
     #[test]
+    /// Equal client metadata must reuse a session only inside the same trusted execution scope.
     fn scopes_separate_trusted_sessions_and_content_addressed_cache() {
         let a = InferenceExecutionScope::new();
         let b = InferenceExecutionScope::new();
@@ -168,6 +169,7 @@ mod tests {
     }
 
     #[test]
+    /// Requests without client cache keys must still retain their execution-scope namespace.
     fn scoped_default_cache_never_falls_back_to_the_global_namespace() {
         let scope = InferenceExecutionScope::new();
         let ids = InferenceGenerationIds::new_with_trust(
@@ -272,6 +274,7 @@ pub(in crate::frontend) struct InferenceCacheHints {
 }
 
 impl InferenceCacheHints {
+    /// Read normalized client cache hints without granting a trusted execution scope.
     pub(in crate::frontend) fn from_chat_request(request: &ChatCompletionRequest) -> Self {
         Self {
             prompt_cache_key: request
@@ -288,6 +291,7 @@ impl InferenceCacheHints {
         }
     }
 
+    /// Read completion cache hints; only the backend owner may add an execution scope.
     pub(in crate::frontend) fn from_completion_request(request: &CompletionRequest) -> Self {
         Self {
             prompt_cache_key: request
@@ -304,6 +308,8 @@ impl InferenceCacheHints {
         }
     }
 
+    /// Derive a cache namespace from the trusted scope and optional client cache key.
+    /// A scoped request always has a namespace, even when the client supplies no key.
     pub(in crate::frontend) fn namespace(&self) -> Option<String> {
         let namespace = self
             .prompt_cache_key

@@ -904,6 +904,9 @@ impl Node {
         Ok(((their_announcements, their_plugin_keys), rtt_ms))
     }
 
+    /// Apply peer announcements and refresh observed path latency before discovery.
+    /// Full-model attachments dial secondary peers in the background so stale peers
+    /// do not delay an already admitted attachment's join.
     pub(crate) async fn apply_gossip_announcements(
         &self,
         remote: EndpointId,

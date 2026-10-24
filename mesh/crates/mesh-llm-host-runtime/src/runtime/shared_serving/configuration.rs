@@ -102,6 +102,7 @@ pub(super) fn read_explicit_trust_store(path: &Path) -> Result<crate::crypto::Tr
     Ok(store)
 }
 
+/// Accept only bounded ASCII labels that are safe single state-path components.
 fn valid_membership_name(name: &str) -> bool {
     !name.is_empty()
         && name.len() <= 64
@@ -129,6 +130,8 @@ pub(super) fn read_join_token(path: &Path) -> Result<String> {
     Ok(token.to_owned())
 }
 
+/// Create or validate a real state directory, rejecting symlinks.
+/// On Unix, require existing permissions to exclude group and other access.
 pub(super) fn private_directory(path: &Path) -> Result<()> {
     let mut builder = std::fs::DirBuilder::new();
     builder.recursive(true);
@@ -154,6 +157,8 @@ pub(super) fn private_directory(path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Open a state file for reading and writing without truncating existing data.
+/// Reject symlinks; on Unix, create with mode 0600 and open with `O_NOFOLLOW`.
 pub(super) fn private_file(path: &Path) -> Result<std::fs::File> {
     let mut options = std::fs::OpenOptions::new();
     options.read(true).write(true).create(true);
@@ -174,6 +179,7 @@ mod tests {
     use super::*;
 
     #[test]
+    /// Require explicit trust files to exist, parse and use the supported schema version.
     fn explicit_trust_store_requires_valid_supported_contents() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("trust.json");
@@ -195,6 +201,7 @@ mod tests {
     }
 
     #[test]
+    /// Accept only bounded membership labels that cannot traverse state directories.
     fn labels_are_bounded_path_components() {
         for name in ["", ".", "..", "work/lab", "work\\lab", "é", "a\nb"] {
             assert!(!valid_membership_name(name), "accepted {name:?}");
@@ -204,6 +211,7 @@ mod tests {
     }
 
     #[test]
+    /// Token-file failures must not echo credential contents into diagnostics.
     fn malformed_or_oversized_token_never_appears_in_diagnostics() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("token");
@@ -220,6 +228,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    /// Enforce private Unix state paths without following links or repairing public permissions.
     fn state_paths_reject_symlinks_and_public_existing_directories() {
         use std::os::unix::fs::{PermissionsExt, symlink};
         let directory = tempfile::tempdir().unwrap();

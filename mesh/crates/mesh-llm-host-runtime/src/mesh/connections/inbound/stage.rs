@@ -1,6 +1,8 @@
 use super::super::*;
 
 impl Node {
+    /// Handle the stage ALPN, returning whether this connection was consumed.
+    /// Full-model attachments close stage connections instead of dispatching them.
     pub(crate) async fn handle_stage_alpn(
         &self,
         alpn: &[u8],

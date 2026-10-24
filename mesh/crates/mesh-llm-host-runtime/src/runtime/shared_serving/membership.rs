@@ -69,6 +69,10 @@ pub(super) struct AttachmentInputs<'a> {
 }
 
 impl Membership {
+    /// Create an isolated endpoint and local ingress, then join the selected mesh.
+    ///
+    /// Attach the verified binary proof before accepting peers or sending the join.
+    /// A rejected or timed-out join closes the partially constructed attachment.
     pub(super) async fn attach(inputs: AttachmentInputs<'_>) -> Result<Self> {
         let token = read_join_token(&inputs.config.token_file)?;
         let directory = inputs.state_dir.join(&inputs.config.name);
@@ -167,6 +171,7 @@ impl Membership {
         }
     }
 
+    /// Publish or withdraw this membership's sole local model target and gossip offer.
     pub(super) async fn advertise(&self, ready: bool) {
         let model = self.descriptor.identity.model_name.clone();
         let models = if ready {
@@ -194,16 +199,20 @@ impl Membership {
         self.node.regossip().await;
     }
 
+    /// Reject queued and new requests, then withdraw the offer without cancelling active work.
     pub(super) async fn pause(&self) {
         self.admission.pause(self.member, false);
         self.advertise(false).await;
     }
 
+    /// Reopen admission and republish the model offer for this attachment.
     pub(super) async fn resume(&self) {
         self.admission.resume(self.member);
         self.advertise(true).await;
     }
 
+    /// Retire admission, signal cancellation and close this attachment's network tasks.
+    /// Worker-held leases keep shared capacity reserved until execution exits.
     pub(super) async fn close(self) {
         self.admission.retire(self.member);
         self.http_shutdown.cancel();
@@ -217,6 +226,8 @@ impl Membership {
 }
 
 impl Drop for Membership {
+    /// Provide cancellation cleanup for interrupted attachment setup or teardown.
+    /// Schedule endpoint closure when a Tokio runtime is available.
     fn drop(&mut self) {
         self.admission.retire(self.member);
         self.http_shutdown.cancel();
@@ -232,6 +243,7 @@ impl Drop for Membership {
     }
 }
 
+/// Run peer heartbeats without installing model election or control loops.
 fn membership_maintenance(node: Node) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut failures = HashMap::new();
@@ -242,6 +254,8 @@ fn membership_maintenance(node: Node) -> tokio::task::JoinHandle<()> {
     })
 }
 
+/// Load this membership's explicit trust store and optional owner key.
+/// Missing explicit files fail the join rather than downgrading to implicit trust.
 fn owner_config(config: &ServingMembershipConfig) -> Result<crate::mesh::OwnerRuntimeConfig> {
     let trust_store = match &config.trust_store {
         Some(path) => super::configuration::read_explicit_trust_store(path)?,
@@ -271,6 +285,7 @@ mod tests {
     use super::*;
 
     #[test]
+    /// An absent explicitly selected trust file must fail rather than use the implicit off policy.
     fn missing_explicit_trust_store_cannot_downgrade_reconnect_policy() {
         let directory = tempfile::tempdir().unwrap();
         let config = ServingMembershipConfig {

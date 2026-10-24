@@ -11,6 +11,7 @@ pub(crate) struct LoadedReleaseAttestation {
     pub(crate) attestation: Option<crate::ReleaseBuildAttestation>,
 }
 
+/// Verify the running executable's embedded release proof using the default trust store.
 pub(crate) fn load_for_current_binary() -> Result<LoadedReleaseAttestation> {
     let binary_path =
         std::env::current_exe().context("failed to determine mesh-llm binary path")?;
@@ -38,6 +39,7 @@ pub(super) async fn attach_to_node(
         .await;
 }
 
+/// Log whether a binary's proof is missing, invalid or successfully verified.
 fn log_loaded_attestation(loaded: &LoadedReleaseAttestation) {
     match loaded.summary.status {
         crate::ReleaseAttestationStatus::Missing => tracing::info!(
@@ -53,6 +55,7 @@ fn log_loaded_attestation(loaded: &LoadedReleaseAttestation) {
     }
 }
 
+/// Log verified signer and proof identity, warning if the expected payload is absent.
 fn log_verified_attestation(loaded: &LoadedReleaseAttestation) {
     let Some(attestation) = &loaded.attestation else {
         tracing::warn!(
@@ -88,6 +91,8 @@ pub(crate) fn assert_release_attestation_reports_missing_for_unstamped_binary() 
     assert!(loaded.attestation.is_none());
 }
 
+/// Load and verify a binary's embedded proof against the supplied signer trust store.
+/// Preserve missing/invalid proof status and contextualize errors reading the binary.
 pub(super) fn load_for_binary_path(
     binary_path: &std::path::Path,
     trust_store: &ReleaseSignerTrustStore,
@@ -143,6 +148,7 @@ mod tests {
     }
 
     #[tokio::test]
+    /// Preserve the root I/O failure in diagnostics when the binary proof cannot be read.
     async fn attach_to_node_logs_binary_read_error_chain() {
         use tracing::instrument::WithSubscriber;
 

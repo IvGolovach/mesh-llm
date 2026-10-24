@@ -224,6 +224,8 @@ fn log_detected_vram_with_cap(
     }
 }
 
+/// Initialize trust and sign endpoint ownership with the configured owner key.
+/// Scoped identities persist their attestation in their own state directory.
 pub(super) fn init_owner_runtime(
     owner_config: Option<&OwnerRuntimeConfig>,
     endpoint_id: EndpointId,

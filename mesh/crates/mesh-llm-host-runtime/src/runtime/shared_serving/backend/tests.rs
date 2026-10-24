@@ -9,10 +9,12 @@ struct HoldingBackend {
 
 #[async_trait]
 impl InferenceBackend for HoldingBackend {
+    /// Expose one fake model for admission tests.
     async fn models(&self) -> InferenceResult<Vec<ModelObject>> {
         Ok(vec![ModelObject::new("shared")])
     }
 
+    /// Reject non-stream chat so this fixture cannot accidentally execute untracked work.
     async fn chat_completion(
         &self,
         _: ChatCompletionRequest,
@@ -20,6 +22,7 @@ impl InferenceBackend for HoldingBackend {
         Err(InferenceError::unsupported("stream-only test backend"))
     }
 
+    /// Keep the worker context alive behind a permanently pending response stream.
     async fn chat_completion_stream(
         &self,
         _: ChatCompletionRequest,
@@ -29,6 +32,7 @@ impl InferenceBackend for HoldingBackend {
         Ok(Box::pin(futures_util::stream::pending()))
     }
 
+    /// Retain a worker context after the non-streaming caller's future is abandoned.
     async fn completion_with_context(
         &self,
         _: CompletionRequest,
@@ -38,6 +42,7 @@ impl InferenceBackend for HoldingBackend {
         std::future::pending().await
     }
 
+    /// Record an invalid delegation so the test detects any realtime admission bypass.
     async fn realtime_transcription(
         &self,
         _: realtime::RealtimeTranscriptionConfig,
@@ -50,12 +55,14 @@ impl InferenceBackend for HoldingBackend {
     }
 }
 
+/// Register a fresh membership wrapper around the same holding backend.
 fn membership(inner: Arc<HoldingBackend>, admission: &Arc<Admission>) -> Arc<MembershipBackend> {
     let id = admission.register(2);
     Arc::new(MembershipBackend::new(inner, admission.clone(), id))
 }
 
 #[tokio::test]
+/// Unsupported realtime must fail before reaching the underlying shared backend.
 async fn unsupported_realtime_cannot_bypass_membership_admission() {
     let inner = Arc::new(HoldingBackend::default());
     let admission = Admission::new(1, 4).unwrap();
@@ -76,6 +83,7 @@ async fn unsupported_realtime_cannot_bypass_membership_admission() {
 }
 
 #[tokio::test]
+/// Dropping one stream must isolate cancellation and preserve worker-owned capacity.
 async fn disconnect_cancels_only_its_stream_and_does_not_release_a_running_worker() {
     let inner = Arc::new(HoldingBackend::default());
     let admission = Admission::new(2, 4).unwrap();
@@ -116,6 +124,7 @@ async fn disconnect_cancels_only_its_stream_and_does_not_release_a_running_worke
 }
 
 #[tokio::test]
+/// Aborting a non-stream request must cancel its worker without releasing its held lease.
 async fn dropping_a_nonstream_future_cancels_but_waits_for_worker_cleanup() {
     let inner = Arc::new(HoldingBackend::default());
     let admission = Admission::new(1, 4).unwrap();

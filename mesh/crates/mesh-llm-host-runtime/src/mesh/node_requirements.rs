@@ -73,6 +73,8 @@ pub(crate) fn preflight_pushed_config_for_current_node_with_gpus(
 }
 
 impl Node {
+    /// Resolve the attachment-specific membership file before the process default.
+    /// Tests without an explicit file avoid accessing the user's persisted membership.
     fn membership_file(&self) -> Result<Option<std::path::PathBuf>> {
         if let Some(path) = &self.adopted_membership_file {
             return Ok(Some(path.clone()));
@@ -184,6 +186,8 @@ impl Node {
         }
     }
 
+    /// Load a verified genesis policy matching the local owner and requirements,
+    /// or atomically persist a newly signed policy in this identity's state directory.
     pub(crate) fn load_or_create_signed_genesis_policy(
         &self,
     ) -> Result<crate::SignedMeshGenesisPolicy> {

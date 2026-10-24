@@ -9,6 +9,8 @@ use std::process::Stdio;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 #[ignore = "requires SHARED_SERVING_BINARY, SHARED_SERVING_MODEL and a matching packaged native runtime"]
+/// Exercise a locally built product and GGUF across two isolated meshes.
+/// Requires explicit binary/model inputs and a matching packaged runtime; normally ignored.
 async fn composed_product_serves_two_meshes_from_one_native_model() -> Result<()> {
     let binary =
         std::env::var("SHARED_SERVING_BINARY").context("set the just-built release binary")?;
@@ -110,6 +112,7 @@ async fn composed_product_serves_two_meshes_from_one_native_model() -> Result<()
 }
 
 #[cfg(unix)]
+/// Send SIGTERM only to the owned child and require a successful bounded shutdown.
 async fn graceful_stop(process: &mut tokio::process::Child) -> Result<()> {
     let id = process
         .id()
@@ -128,6 +131,8 @@ async fn graceful_stop(process: &mut tokio::process::Child) -> Result<()> {
     Ok(())
 }
 
+/// Verify shared native identity, concurrent inference and independent membership lifecycle.
+/// Optionally run a released client and assert every request drains without using the mock backend.
 async fn exercise_product(
     fixture: &Fixture,
     client: &reqwest::Client,
@@ -240,6 +245,7 @@ async fn exercise_product(
     Ok(())
 }
 
+/// Require nonempty generated text and token usage through the product's QUIC HTTP path.
 async fn native_request(seed: &Node, endpoint: iroh::EndpointId) -> Result<()> {
     let body = r#"{"model":"shared-test","prompt":"The capital of France is","max_tokens":8,"temperature":0,"prompt_cache_key":"same-key","user":"same-user"}"#;
     let raw = format!(

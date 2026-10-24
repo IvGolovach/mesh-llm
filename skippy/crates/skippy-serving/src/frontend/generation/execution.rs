@@ -4,6 +4,7 @@ use super::{InferenceCacheHints, InferenceGenerationIds};
 use skippy_inference_api::InferenceRequestContext;
 use tokio::task;
 
+/// Combine frontend request identity, trusted session metadata and execution scope.
 pub(in crate::frontend) fn generation_ids(
     cache: InferenceCacheHints,
     agent_session_id: Option<&str>,
@@ -21,6 +22,8 @@ pub(in crate::frontend) fn generation_ids(
     .with_execution_scope(context.execution_scope())
 }
 
+/// Run blocking inference while owning its permit and full request context.
+/// Abandoning the awaiting future does not release capacity while native work continues.
 pub(in crate::frontend) async fn run_blocking_generation_worker<T, F, P>(
     permit: P,
     context: InferenceRequestContext,
@@ -56,12 +59,14 @@ mod tests {
     struct ObservedLease(Arc<AtomicBool>);
     impl InferenceExecutionLease for ObservedLease {}
     impl Drop for ObservedLease {
+        /// Record the instant the final test execution lease is released.
         fn drop(&mut self) {
             self.0.store(true, Ordering::Release);
         }
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    /// Aborting the async waiter must retain the lease until its blocking worker has exited.
     async fn abandoned_future_retains_execution_lease_until_blocking_work_exits() {
         let released = Arc::new(AtomicBool::new(false));
         let context = InferenceRequestContext::new().with_execution_scope(

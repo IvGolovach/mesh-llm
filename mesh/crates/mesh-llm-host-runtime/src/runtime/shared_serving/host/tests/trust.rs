@@ -4,6 +4,7 @@ use crate::crypto::{
     verify_node_ownership,
 };
 
+/// Install a short-lived, verified ownership attestation on a test endpoint.
 async fn attest(node: &Node, owner: &OwnerKeypair) {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -24,6 +25,7 @@ async fn attest(node: &Node, owner: &OwnerKeypair) {
 }
 
 #[tokio::test]
+/// A trusted owner in one mesh must not gain another mesh's admission or host control.
 async fn allowlist_and_owner_control_authority_remain_membership_local() {
     let mut fixture = Fixture::new().await;
     fixture.host.shutdown().await.unwrap();

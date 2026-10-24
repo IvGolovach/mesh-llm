@@ -919,6 +919,8 @@ impl InferenceBackend for StageOpenAiBackend {
             .await
     }
 
+    /// Validate and prepare a chat request, then generate with its trusted execution context.
+    /// The context's scope follows prompt preparation, native request IDs and cache selection.
     async fn chat_completion_with_context(
         &self,
         request: ChatCompletionRequest,
@@ -1071,6 +1073,8 @@ impl InferenceBackend for StageOpenAiBackend {
         .await
     }
 
+    /// Prepare a chat stream with the caller's cancellation and execution scope.
+    /// The native worker retains the context while producing bounded response events.
     async fn chat_completion_stream(
         &self,
         request: ChatCompletionRequest,
@@ -1705,6 +1709,8 @@ impl StageOpenAiBackend {
     }
 
     #[allow(clippy::too_many_arguments)]
+    /// Prepare and admit a generation, retaining context and permits in its blocking worker.
+    /// Cancellation returns an error while worker-owned leases prevent premature capacity reuse.
     async fn run_generation(
         &self,
         prompt: PreparedGenerationPrompt,
@@ -1797,6 +1803,8 @@ impl StageOpenAiBackend {
     }
 
     #[allow(clippy::too_many_arguments)]
+    /// Admit streaming generation and retain context and permits in the native worker.
+    /// Forward bounded output events and preserve cancellation through stream delivery.
     async fn run_generation_stream(
         &self,
         prompt: PreparedGenerationPrompt,

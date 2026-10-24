@@ -14,6 +14,7 @@ mod released_peer;
 mod trust;
 
 #[test]
+/// An abandoned join must publish failure and release only that membership's mesh claim.
 fn interrupted_join_releases_its_mesh_claim_without_touching_other_memberships() {
     let (status, _) = watch::channel(MembershipStatus {
         name: "alpha".into(),
@@ -47,6 +48,7 @@ struct RecordingBackend {
 
 #[async_trait]
 impl InferenceBackend for RecordingBackend {
+    /// Reject chat on the completion-only recording fixture.
     async fn chat_completion(
         &self,
         _: skippy_inference_api::ChatCompletionRequest,
@@ -56,6 +58,7 @@ impl InferenceBackend for RecordingBackend {
         ))
     }
 
+    /// Reject chat streams on the completion-only recording fixture.
     async fn chat_completion_stream(
         &self,
         _: skippy_inference_api::ChatCompletionRequest,
@@ -66,10 +69,12 @@ impl InferenceBackend for RecordingBackend {
         ))
     }
 
+    /// Expose the single model advertised by the isolated test host.
     async fn models(&self) -> InferenceResult<Vec<ModelObject>> {
         Ok(vec![ModelObject::new("shared-test")])
     }
 
+    /// Record the trusted membership scope before returning a deterministic completion.
     async fn completion_with_context(
         &self,
         request: CompletionRequest,
@@ -95,6 +100,7 @@ struct Fixture {
 }
 
 impl Fixture {
+    /// Start two independent loopback seed meshes sharing one recording backend.
     async fn new() -> Self {
         let directory = tempfile::tempdir().unwrap();
         let backend = Arc::new(RecordingBackend::default());
@@ -155,6 +161,7 @@ impl Fixture {
         }
     }
 
+    /// Send identical client/cache metadata through a selected membership's QUIC ingress.
     async fn request(&self, index: usize, name: &str) -> String {
         let body = r#"{"model":"shared-test","prompt":"same prompt","max_tokens":1,"prompt_cache_key":"same-client-key","user":"same-user"}"#;
         let raw = format!(
@@ -164,6 +171,7 @@ impl Fixture {
         self.raw_request(index, name, &raw).await
     }
 
+    /// Send raw HTTP over a seed-to-attachment QUIC tunnel with a bounded response wait.
     async fn raw_request(&self, index: usize, name: &str, raw: &str) -> String {
         let status = self.host.status().await;
         let member = status
@@ -182,6 +190,7 @@ impl Fixture {
         String::from_utf8(response).unwrap()
     }
 
+    /// Drain the shared test host and close both isolated seed endpoints.
     async fn close(self) {
         self.host.shutdown().await.unwrap();
         for seed in self.seeds {
@@ -191,6 +200,7 @@ impl Fixture {
 }
 
 #[tokio::test]
+/// Exercise isolated identities, peers and execution scopes across pause, leave and reconnect.
 async fn two_independent_quic_meshes_share_backend_without_sharing_membership_or_execution_scope() {
     let fixture = Fixture::new().await;
     let before = fixture.host.status().await;
@@ -265,6 +275,7 @@ async fn two_independent_quic_meshes_share_backend_without_sharing_membership_or
 }
 
 #[tokio::test]
+/// Reject case-folded duplicate labels before they can share persisted state.
 async fn membership_labels_cannot_alias_state_on_case_insensitive_filesystems() {
     let fixture = Fixture::new().await;
     let mut config = fixture.host.config.clone();
@@ -282,6 +293,7 @@ async fn membership_labels_cannot_alias_state_on_case_insensitive_filesystems() 
 }
 
 #[tokio::test]
+/// A corrupted token must fail its reconnect while the other mesh keeps serving.
 async fn bad_reconnect_token_fails_closed_without_stopping_other_membership() {
     let fixture = Fixture::new().await;
     std::fs::write(
@@ -299,6 +311,7 @@ async fn bad_reconnect_token_fails_closed_without_stopping_other_membership() {
 }
 
 #[tokio::test]
+/// Interrupted advertisement must not leave status contradicting effective admission.
 async fn abandoned_pause_and_resume_report_effective_admission_state() {
     let fixture = Fixture::new().await;
     let node = fixture
@@ -344,6 +357,7 @@ async fn abandoned_pause_and_resume_report_effective_admission_state() {
 }
 
 #[tokio::test]
+/// Reject a second attachment to one mesh and refuse new work after shutdown.
 async fn duplicate_mesh_attachment_is_rejected_and_shutdown_cannot_resume() {
     let fixture = Fixture::new().await;
     std::fs::write(
@@ -360,6 +374,7 @@ async fn duplicate_mesh_attachment_is_rejected_and_shutdown_cannot_resume() {
 }
 
 #[tokio::test]
+/// A live shared host must exclude a second owner of its state directory.
 async fn shared_state_directory_has_one_lifetime_owner() {
     let fixture = Fixture::new().await;
     assert!(lock_state(&fixture.host.config).is_err());
@@ -367,6 +382,7 @@ async fn shared_state_directory_has_one_lifetime_owner() {
 }
 
 #[tokio::test]
+/// Require operator authentication for status and lifecycle changes without exposing credentials.
 async fn management_http_requires_operator_authentication_for_reads_and_writes() {
     let fixture = Fixture::new().await;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -419,6 +435,7 @@ async fn management_http_requires_operator_authentication_for_reads_and_writes()
 }
 
 #[tokio::test]
+/// Even admitted peers must not acquire model-control, plugin or unknown stream access.
 async fn admitted_mesh_cannot_open_model_control_or_plugin_streams() {
     let fixture = Fixture::new().await;
     let record = fixture.host.record("alpha").unwrap();

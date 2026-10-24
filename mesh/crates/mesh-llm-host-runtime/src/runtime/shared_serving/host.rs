@@ -39,6 +39,7 @@ struct JoiningStatus<'a> {
 }
 
 impl Drop for JoiningStatus<'_> {
+    /// Mark an interrupted join as failed and release only its mesh ownership claim.
     fn drop(&mut self) {
         self.status.send_modify(|status| {
             if matches!(status.phase, MembershipPhase::Joining) {
@@ -82,6 +83,10 @@ pub struct SharedServingHost {
 }
 
 impl SharedServingHost {
+    /// Validate inputs, lock the private state directory, and load one local GGUF.
+    ///
+    /// Memberships remain detached until connected explicitly. Runtime discovery uses
+    /// installed or bundled native code; this path never downloads a backend.
     pub async fn load(config: SharedServingConfig) -> Result<Arc<Self>> {
         config.validate()?;
         let lock = lock_state(&config)?;
@@ -119,6 +124,7 @@ impl SharedServingHost {
         Self::assemble(config, descriptor, native.backend(), Some(native), lock)
     }
 
+    /// Combine a backend, state lock and detached memberships under one capacity owner.
     fn assemble(
         config: SharedServingConfig,
         descriptor: ServedModelDescriptor,
@@ -178,6 +184,11 @@ impl SharedServingHost {
         futures_util::future::join_all(joins).await;
     }
 
+    /// Replace one attachment after rereading its token, trust and binary proof.
+    ///
+    /// Retain its persisted endpoint identity but allocate a fresh execution scope.
+    /// Reject duplicate mesh attachments and joins racing with host shutdown;
+    /// a failed or interrupted join leaves the membership available for retry.
     pub async fn reconnect(&self, name: &str) -> Result<()> {
         let record = self.record(name)?;
         let mut attachment = record.attachment.lock().await;
@@ -281,6 +292,8 @@ impl SharedServingHost {
         }
     }
 
+    /// Stop new and queued work for one membership and withdraw its model offer.
+    /// Already admitted execution may finish; the model stays loaded.
     pub async fn pause(&self, name: &str) -> Result<()> {
         let record = self.record(name)?;
         let attachment = record.attachment.lock().await;
@@ -294,6 +307,8 @@ impl SharedServingHost {
         Ok(())
     }
 
+    /// Reopen a connected or paused membership and advertise its model offer.
+    /// Detached memberships must reconnect; a stopping host cannot resume.
     pub async fn resume(&self, name: &str) -> Result<()> {
         anyhow::ensure!(
             !self.stopping.load(Ordering::Acquire),
@@ -315,6 +330,8 @@ impl SharedServingHost {
         Ok(())
     }
 
+    /// Detach one membership, cancel its requests and withdraw its model offer.
+    /// Other memberships keep serving, and the host retains ownership of the model.
     pub async fn leave(&self, name: &str) -> Result<()> {
         let record = self.record(name)?;
         let mut attachment = record.attachment.lock().await;
@@ -334,6 +351,8 @@ impl SharedServingHost {
         Ok(())
     }
 
+    /// Snapshot aggregate capacity and membership state without waiting for a join.
+    /// Membership counters may reflect the last published state during a lifecycle operation.
     pub async fn status(&self) -> SharedServingStatus {
         let mut memberships = Vec::with_capacity(self.members.len());
         for record in self.members.values() {
@@ -363,6 +382,8 @@ impl SharedServingHost {
         }
     }
 
+    /// Prevent new joins, detach every membership and wait up to 30 seconds for workers.
+    /// Only after leases drain is native execution shut down; a timeout returns an error.
     pub async fn shutdown(&self) -> Result<()> {
         self.stopping.store(true, Ordering::Release);
         futures_util::future::try_join_all(self.members.keys().map(|name| self.leave(name)))
@@ -380,6 +401,7 @@ impl SharedServingHost {
         Ok(())
     }
 
+    /// Look up an exact configured membership name, rejecting unknown labels.
     fn record(&self, name: &str) -> Result<&MemberRecord> {
         self.members
             .get(name)
@@ -387,6 +409,7 @@ impl SharedServingHost {
     }
 }
 
+/// Hold an exclusive process-lifetime lock in the private state directory.
 fn lock_state(config: &SharedServingConfig) -> Result<std::fs::File> {
     private_directory(&config.state_dir)?;
     let lock = private_file(&config.state_dir.join("host.lock"))?;

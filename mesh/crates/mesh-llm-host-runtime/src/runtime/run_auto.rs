@@ -829,6 +829,8 @@ pub(super) fn spawn_node_benchmark_task(node: &mesh::Node, bin_dir: &Path) {
     });
 }
 
+/// Start the ordinary node, attach its binary proof before accepting peers,
+/// and install its stage-control and plugin services with startup failure cleanup.
 pub(super) async fn start_run_auto_node_and_plugins(
     options: &RuntimeOptions,
     config: &plugin::MeshConfig,

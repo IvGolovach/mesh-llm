@@ -1,6 +1,7 @@
 use super::*;
 
 #[tokio::test]
+/// A silent secondary peer must not block seed admission or the other mesh's inference.
 async fn reconnect_does_not_wait_for_an_unresponsive_transitive_peer() {
     let fixture = Fixture::new().await;
     fixture.host.leave("alpha").await.unwrap();

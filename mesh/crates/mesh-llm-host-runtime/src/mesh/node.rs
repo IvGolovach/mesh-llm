@@ -755,6 +755,7 @@ impl Node {
     }
 
     #[cfg(test)]
+    /// Construct a test node around an already bound endpoint and isolated state.
     pub(crate) fn new_test_node_from_endpoint(
         role: NodeRole,
         endpoint: Endpoint,
@@ -884,6 +885,9 @@ impl Node {
         }
     }
 
+    /// Start direct owner control only for a verified owner on an ordinary node.
+    /// Full-model attachments have no mesh control authority; the separate control
+    /// endpoint never registers a duplicate identity with the relay.
     pub(crate) async fn maybe_start_control_listener(
         &self,
         secret_key: SecretKey,

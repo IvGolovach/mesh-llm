@@ -64,11 +64,13 @@ pub(super) struct Lease {
 impl InferenceExecutionLease for Lease {}
 
 impl Drop for Lease {
+    /// Release this ticket only when the final execution-lease owner is dropped.
     fn drop(&mut self) {
         self.admission.release(self.ticket);
     }
 }
 
+/// Report admission pressure as HTTP 429 with a one-second retry hint.
 fn unavailable(message: &str) -> InferenceError {
     InferenceError::from_kind(
         axum::http::StatusCode::TOO_MANY_REQUESTS,
@@ -79,6 +81,9 @@ fn unavailable(message: &str) -> InferenceError {
 }
 
 impl Admission {
+    /// Create a shared execution budget and a bounded aggregate waiting queue.
+    ///
+    /// Zero concurrency is invalid; zero queue capacity permits immediate work only.
     pub(super) fn new(concurrency: usize, queue_limit: usize) -> anyhow::Result<Arc<Self>> {
         anyhow::ensure!(concurrency > 0, "shared concurrency must be positive");
         Ok(Arc::new(Self {
@@ -88,6 +93,8 @@ impl Admission {
         }))
     }
 
+    /// Register an accepting membership with its own waiting limit, without
+    /// increasing the host's aggregate execution or queue capacity.
     pub(super) fn register(&self, queue_limit: usize) -> MemberId {
         let mut state = self.state.lock().expect("admission lock poisoned");
         state.next_id += 1;
@@ -105,6 +112,10 @@ impl Admission {
         id
     }
 
+    /// Wait for this membership's turn and return a lease on shared capacity.
+    ///
+    /// Cancellation or dropping the waiting future releases its queued ticket.
+    /// Admitted work keeps its slot until every clone of the lease is dropped.
     pub(super) async fn acquire(
         self: &Arc<Self>,
         member: MemberId,
@@ -126,6 +137,8 @@ impl Admission {
         }
     }
 
+    /// Enforce both waiting limits, enqueue a FIFO ticket, and dispatch ready work.
+    /// Existing waiters take precedence over a newly arriving request.
     fn enqueue(
         self: &Arc<Self>,
         member: MemberId,
@@ -175,6 +188,8 @@ impl Admission {
         ))
     }
 
+    /// Fill free execution slots by rotating among memberships with queued work.
+    /// Disconnected waiters are removed without consuming native capacity.
     fn dispatch(&self, state: &mut State) {
         while state.active < self.concurrency {
             let Some(member_id) = state.rotation.pop_front() else {
@@ -206,6 +221,8 @@ impl Admission {
         }
     }
 
+    /// Remove a queued or active ticket, reclaim its budget, and wake the next turn.
+    /// Retired memberships remain tracked until their last active ticket finishes.
     fn release(&self, ticket_id: u64) {
         let mut state = self.state.lock().expect("admission lock poisoned");
         let Some(ticket) = state.tickets.remove(&ticket_id) else {
@@ -261,6 +278,7 @@ impl Admission {
         self.dispatch(&mut state);
     }
 
+    /// Reopen admission for a paused membership; retired memberships stay closed.
     pub(super) fn resume(&self, member: MemberId) {
         if let Some(member) = self
             .state
@@ -273,6 +291,8 @@ impl Admission {
         }
     }
 
+    /// Permanently close admission and signal cancellation of active requests.
+    /// Their leases retain capacity until the workers actually release them.
     pub(super) fn retire(&self, member_id: MemberId) {
         self.pause(member_id, true);
         let mut state = self.state.lock().expect("admission lock poisoned");
@@ -284,6 +304,7 @@ impl Admission {
         }
     }
 
+    /// Snapshot a membership's admission counters, or an inactive default if absent.
     pub(super) fn status(&self, member: MemberId) -> AdmissionStatus {
         self.state
             .lock()
@@ -298,10 +319,12 @@ impl Admission {
             .unwrap_or_default()
     }
 
+    /// Count execution slots still held, including workers awaiting cancellation.
     pub(super) fn active(&self) -> usize {
         self.state.lock().expect("admission lock poisoned").active
     }
 
+    /// Snapshot aggregate active and queued counts under the same lock.
     pub(super) fn totals(&self) -> (usize, usize) {
         let state = self.state.lock().expect("admission lock poisoned");
         (state.active, state.queued)

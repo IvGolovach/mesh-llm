@@ -1,6 +1,7 @@
 use super::*;
 
 #[tokio::test]
+/// Keep one mesh's HTTP ingress out of other catalogs, blob storage and host management.
 async fn mesh_http_cannot_reach_other_catalogs_blobs_or_host_management() {
     let fixture = Fixture::new().await;
     fixture.seeds[1]
@@ -39,6 +40,7 @@ async fn mesh_http_cannot_reach_other_catalogs_blobs_or_host_management() {
 }
 
 #[tokio::test]
+/// Slow HTTP bodies must hit ingress limits and release all permits when detached.
 async fn slow_request_ingress_is_bounded_and_detach_releases_its_tasks() {
     let fixture = Fixture::new().await;
     let status = fixture.host.status().await;
@@ -82,6 +84,7 @@ async fn slow_request_ingress_is_bounded_and_detach_releases_its_tasks() {
 }
 
 #[tokio::test]
+/// Reject HTTP before gossip admission and close stage transport on full-model attachments.
 async fn attachment_rejects_unadmitted_http_and_stage_transport() {
     let fixture = Fixture::new().await;
     let outsider = iroh::Endpoint::builder(iroh::endpoint::presets::Minimal)

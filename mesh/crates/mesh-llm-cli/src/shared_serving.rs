@@ -56,6 +56,8 @@ pub struct NamedPath {
     pub path: PathBuf,
 }
 
+/// Parse `NAME=FILE` without reading the file or exposing its contents.
+/// Require a bounded ASCII membership label and a nonempty path.
 fn parse_named_path(value: &str) -> Result<NamedPath, String> {
     let (name, path) = value
         .split_once('=')
@@ -84,6 +86,7 @@ mod tests {
     use clap::Parser;
 
     #[test]
+    /// Require explicit launch inputs and preserve bounded defaults for repeated memberships.
     fn shared_serving_requires_explicit_model_memberships_and_state() {
         assert!(Cli::try_parse_from(["mesh-llm", "serve-shared"]).is_err());
         let cli = Cli::try_parse_from([
@@ -111,6 +114,7 @@ mod tests {
     }
 
     #[test]
+    /// Reject path separators, traversal labels and incomplete named-file arguments.
     fn membership_names_cannot_escape_their_state_directory() {
         for value in ["../work=x", "work/other=x", "=x", "work=", "work", "..=x"] {
             assert!(parse_named_path(value).is_err(), "accepted {value}");

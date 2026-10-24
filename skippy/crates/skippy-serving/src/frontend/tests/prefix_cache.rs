@@ -254,6 +254,7 @@ fn cache_identity_namespaces_explicit_prompt_cache_keys() {
 }
 
 #[test]
+/// Verify that trusted scopes separate resident lookups and content-addressed L3 page IDs.
 fn shared_execution_scopes_isolate_resident_and_content_addressed_cache() {
     let config = prefix_cache_test_config();
     let kv = KvStageIntegration::from_test_state(&config, skippy_runtime::ModelStateKind::Dense)

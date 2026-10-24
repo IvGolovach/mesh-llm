@@ -24,6 +24,8 @@ pub(super) struct MembershipBackend {
 struct CancelOnDrop(InferenceRequestContext);
 
 impl Drop for CancelOnDrop {
+    /// Signal request cancellation when its HTTP future or stream is dropped.
+    /// Worker-held context clones continue to retain the execution lease.
     fn drop(&mut self) {
         self.0.cancel();
     }
@@ -38,12 +40,14 @@ struct MembershipStream<T> {
 impl<T> Stream for MembershipStream<T> {
     type Item = InferenceResult<T>;
 
+    /// Poll the backend stream while retaining this consumer's execution lease.
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.inner.as_mut().poll_next(cx)
     }
 }
 
 impl MembershipBackend {
+    /// Bind a shared backend to one admission identity and a fresh cache/session scope.
     pub(super) fn new(
         inner: Arc<dyn InferenceBackend>,
         admission: Arc<Admission>,
@@ -57,6 +61,7 @@ impl MembershipBackend {
         }
     }
 
+    /// Acquire shared capacity and install this membership's trusted execution scope.
     async fn admitted(
         &self,
         context: InferenceRequestContext,
@@ -68,6 +73,8 @@ impl MembershipBackend {
         Ok(context.with_execution_scope(self.scope, lease))
     }
 
+    /// Run one admitted request, signalling cancellation if its future is abandoned.
+    /// The backend must retain the supplied context until its actual worker finishes.
     async fn execute<T, F, Fut>(
         &self,
         context: InferenceRequestContext,
@@ -87,10 +94,12 @@ impl MembershipBackend {
 impl InferenceBackend for MembershipBackend {
     // Do not inherit hooks bound to a different Node. The shared backend is
     // loaded without node/plugin hooks; memberships do not bridge callbacks.
+    /// Expose the shared model catalog without consuming an execution slot.
     async fn models(&self) -> InferenceResult<Vec<ModelObject>> {
         self.inner.models().await
     }
 
+    /// Create a cancellable context and use the membership-scoped chat path.
     async fn chat_completion(
         &self,
         request: ChatCompletionRequest,
@@ -99,6 +108,7 @@ impl InferenceBackend for MembershipBackend {
             .await
     }
 
+    /// Execute chat under this membership's admission budget and isolation scope.
     async fn chat_completion_with_context(
         &self,
         request: ChatCompletionRequest,
@@ -110,6 +120,8 @@ impl InferenceBackend for MembershipBackend {
         .await
     }
 
+    /// Retain admission through stream consumption and cancel when the stream drops.
+    /// Any worker-held context continues to own capacity after consumer disconnect.
     async fn chat_completion_stream(
         &self,
         request: ChatCompletionRequest,
@@ -124,11 +136,13 @@ impl InferenceBackend for MembershipBackend {
         }))
     }
 
+    /// Create a cancellable context and use the membership-scoped completion path.
     async fn completion(&self, request: CompletionRequest) -> InferenceResult<CompletionResponse> {
         self.completion_with_context(request, InferenceRequestContext::new())
             .await
     }
 
+    /// Execute a text completion under the shared budget and membership scope.
     async fn completion_with_context(
         &self,
         request: CompletionRequest,
@@ -140,6 +154,7 @@ impl InferenceBackend for MembershipBackend {
         .await
     }
 
+    /// Wrap a completion stream with cancellation and execution-lease ownership.
     async fn completion_stream(
         &self,
         request: CompletionRequest,
@@ -154,6 +169,7 @@ impl InferenceBackend for MembershipBackend {
         }))
     }
 
+    /// Compute embeddings through the same bounded, scoped admission as generation.
     async fn embeddings(
         &self,
         request: EmbeddingsRequest,
@@ -163,6 +179,7 @@ impl InferenceBackend for MembershipBackend {
             .await
     }
 
+    /// Run reranking under this membership's shared execution lease.
     async fn rerank(
         &self,
         request: RerankRequest,
@@ -172,6 +189,7 @@ impl InferenceBackend for MembershipBackend {
             .await
     }
 
+    /// Synthesize audio with membership-scoped admission and cancellation.
     async fn audio_speech(
         &self,
         request: AudioSpeechRequest,
@@ -181,6 +199,7 @@ impl InferenceBackend for MembershipBackend {
             .await
     }
 
+    /// Transcribe audio through the shared budget using this membership's context.
     async fn audio_transcription(
         &self,
         request: AudioTranscriptionRequest,
@@ -192,6 +211,7 @@ impl InferenceBackend for MembershipBackend {
         .await
     }
 
+    /// Translate audio through the shared budget using this membership's context.
     async fn audio_translation(
         &self,
         request: AudioTranscriptionRequest,

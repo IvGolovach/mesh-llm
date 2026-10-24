@@ -212,6 +212,9 @@ impl Node {
         })
     }
 
+    /// Enforce stream permissions and peer admission before dispatching mesh traffic.
+    /// Full-model attachments admit only gossip before membership verification
+    /// and never accept model-control or plugin streams.
     pub(crate) async fn admitted_mesh_stream(
         &self,
         remote: EndpointId,

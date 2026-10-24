@@ -12,6 +12,11 @@ use crate::inference::election::ModelTargets;
 use crate::mesh::{Node, TunnelChannels};
 use crate::network::{affinity::AffinityRouter, openai::client_stream::ClientStream};
 
+/// Serve only admitted HTTP tunnels through this membership's local target map.
+///
+/// Claim per-membership and aggregate ingress permits before reading request bodies.
+/// The caller must abort the task on detach; its owned request set cancels child
+/// futures when the task exits. RPC and stage receivers are deliberately closed.
 pub(crate) fn start_serving_attachment(
     node: Node,
     channels: TunnelChannels,

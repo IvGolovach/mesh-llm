@@ -16,6 +16,7 @@ struct CertifiedMesh {
 }
 
 impl CertifiedMesh {
+    /// Start an isolated mesh whose signed genesis policy requires a specific release signer.
     async fn new() -> Self {
         let directory = tempfile::tempdir().unwrap();
         let signing_key = test_release_signing_key(8);
@@ -43,6 +44,7 @@ impl CertifiedMesh {
         }
     }
 
+    /// Attempt a real shared attachment join with the supplied verified-proof result.
     async fn attach(&self, proof: Result<LoadedReleaseAttestation>) -> Result<Membership> {
         Membership::attach(AttachmentInputs {
             config: &self.membership,
@@ -67,6 +69,7 @@ impl CertifiedMesh {
         .await
     }
 
+    /// Close the certified seed endpoint and stop its accept task.
     async fn close(self) {
         self.seed.close_endpoint().await;
         self.accepting.abort();
@@ -74,6 +77,7 @@ impl CertifiedMesh {
     }
 }
 
+/// Install a signed genesis policy and bootstrap token requiring the selected release signer.
 async fn install_certified_policy(seed: &Node, signer: String) {
     let owner = OwnerKeypair::from_bytes(&[0xb1; 32], &[0xb2; 32]).unwrap();
     let policy = MeshGenesisPolicy::new(
@@ -107,6 +111,7 @@ async fn install_certified_policy(seed: &Node, signer: String) {
     .unwrap();
 }
 
+/// Write test binary bytes and verify their embedded proof through the production loader.
 fn load_fixture(directory: &std::path::Path, bytes: &[u8]) -> LoadedReleaseAttestation {
     let path = directory.join("mesh-llm-test-binary");
     std::fs::write(&path, bytes).unwrap();
@@ -114,6 +119,7 @@ fn load_fixture(directory: &std::path::Path, bytes: &[u8]) -> LoadedReleaseAttes
 }
 
 #[tokio::test]
+/// Prove certified admission, model discovery and reconnect with the same endpoint identity.
 async fn shared_attachment_joins_certified_mesh_with_verified_binary_proof() {
     let fixture = CertifiedMesh::new().await;
     let attachment = fixture.attach(Ok(fixture.proof.clone())).await;
@@ -155,6 +161,7 @@ async fn shared_attachment_joins_certified_mesh_with_verified_binary_proof() {
 }
 
 #[tokio::test]
+/// Reject unsigned, modified, untrusted-signer and unreadable binaries without admitting a peer.
 async fn shared_attachment_rejects_missing_tampered_and_untrusted_binary_proofs() {
     let mut tampered = stamped_binary_bytes(&test_release_signing_key(8));
     tampered[0] ^= 1;

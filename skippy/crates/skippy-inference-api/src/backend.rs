@@ -130,6 +130,7 @@ impl InferenceRequestContext {
         self
     }
 
+    /// Return the trusted in-process isolation scope, if the backend owner installed one.
     pub fn execution_scope(&self) -> Option<crate::InferenceExecutionScope> {
         self.execution_scope
     }
@@ -163,6 +164,7 @@ impl InferenceRequestContext {
 }
 
 impl Default for InferenceRequestContext {
+    /// Create an uncancelled request context without trusted identity or an execution lease.
     fn default() -> Self {
         Self {
             cancellation: CancellationToken::new(),

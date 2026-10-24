@@ -6,6 +6,8 @@ use std::path::Path;
 use std::process::Stdio;
 use std::time::Duration;
 
+/// Run an explicitly supplied release client in isolated state against the test mesh.
+/// Always stop the owned child after discovery and inference checks.
 pub(super) async fn exercise(binary: &Path, directory: &Path) -> Result<()> {
     ensure!(binary.is_file(), "released client binary must exist");
     let state = directory.join("released-client");
@@ -61,6 +63,7 @@ pub(super) async fn exercise(binary: &Path, directory: &Path) -> Result<()> {
     result
 }
 
+/// Wait for the release client to discover the offer, then verify native text and usage.
 async fn request_from_released_client(
     port: u16,
     process: &mut tokio::process::Child,

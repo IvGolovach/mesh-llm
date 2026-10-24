@@ -17,6 +17,7 @@ pub(super) struct AttachmentListener {
 }
 
 impl AttachmentListener {
+    /// Bind accepted connections to this attachment's shutdown token.
     pub(super) fn new(listener: TcpListener, shutdown: CancellationToken) -> Self {
         Self { listener, shutdown }
     }
@@ -26,6 +27,7 @@ impl Listener for AttachmentListener {
     type Io = AttachmentConnection;
     type Addr = SocketAddr;
 
+    /// Accept a TCP connection and give its I/O the attachment's cancellation signal.
     async fn accept(&mut self) -> (Self::Io, Self::Addr) {
         let (stream, address) = Listener::accept(&mut self.listener).await;
         let shutdown = self.shutdown.clone();
@@ -39,6 +41,7 @@ impl Listener for AttachmentListener {
         )
     }
 
+    /// Return the bound loopback listener address, including its assigned port.
     fn local_addr(&self) -> io::Result<Self::Addr> {
         self.listener.local_addr()
     }
@@ -51,6 +54,7 @@ pub(super) struct AttachmentConnection {
 }
 
 impl AttachmentConnection {
+    /// Register the I/O waker for cancellation and reject all I/O after detachment.
     fn check_open(&mut self, cx: &mut Context<'_>) -> io::Result<()> {
         if self.closed || self.cancelled.as_mut().poll(cx).is_ready() {
             self.closed = true;
@@ -65,6 +69,7 @@ impl AttachmentConnection {
 }
 
 impl AsyncRead for AttachmentConnection {
+    /// Read from TCP only while the attachment remains open.
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -76,6 +81,7 @@ impl AsyncRead for AttachmentConnection {
 }
 
 impl AsyncWrite for AttachmentConnection {
+    /// Write to TCP only while the attachment remains open.
     fn poll_write(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -85,11 +91,13 @@ impl AsyncWrite for AttachmentConnection {
         Pin::new(&mut self.stream).poll_write(cx, buffer)
     }
 
+    /// Flush pending writes only while the attachment remains open.
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         self.check_open(cx)?;
         Pin::new(&mut self.stream).poll_flush(cx)
     }
 
+    /// Allow TCP shutdown even after the attachment has been cancelled.
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Pin::new(&mut self.stream).poll_shutdown(cx)
     }
@@ -101,6 +109,7 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     #[tokio::test]
+    /// Cancellation must wake a stalled socket read and reject subsequent writes.
     async fn detach_wakes_pending_connection_io_without_waiting_for_the_client() {
         let shutdown = CancellationToken::new();
         let tcp = TcpListener::bind("127.0.0.1:0").await.unwrap();

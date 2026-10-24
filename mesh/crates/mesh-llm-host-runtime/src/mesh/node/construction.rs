@@ -25,6 +25,8 @@ impl Node {
         clippy::too_many_arguments,
         reason = "preserve the existing public constructor while scoped startup uses NodeStartupSpec"
     )]
+    /// Start an ordinary node with the process-default identity and storage.
+    /// Returns transport receivers for the caller to wire into runtime services.
     pub async fn start(
         role: NodeRole,
         relay: RelayConfig<'_>,
@@ -49,6 +51,10 @@ impl Node {
         .await
     }
 
+    /// Construct a node with explicit transport, ownership and optional scoped identity.
+    ///
+    /// A scoped identity uses its own persisted membership and advertises no split
+    /// capacity. The caller must attach any release proof before accepting or joining peers.
     pub(crate) async fn start_with_spec(
         spec: NodeStartupSpec<'_>,
     ) -> Result<(Self, TunnelChannels)> {
@@ -259,6 +265,7 @@ struct StartupPolicies {
 }
 
 impl StartupPolicies {
+    /// Resolve activity, public-mesh and drain policies from optional owner settings.
     fn new(owner: Option<&OwnerRuntimeConfig>) -> Self {
         let activity = owner
             .map(|owner| owner.activity.clone())
@@ -278,6 +285,8 @@ impl StartupPolicies {
     }
 }
 
+/// Bind the endpoint and obtain discovery addresses permitted by the relay policy.
+/// Relay readiness is bounded; LAN-only policy skips public STUN.
 async fn bind_discoverable_endpoint(
     secret_key: SecretKey,
     relay: RelayConfig<'_>,
