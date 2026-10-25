@@ -248,7 +248,10 @@ pub(super) fn init_owner_runtime(
                     owner_config.and_then(|config| config.node_label.clone()),
                     hostname,
                 )?;
-                save_node_ownership(&directory.join("node-ownership.json"), &attestation)?;
+                save_node_ownership(
+                    &super::ownership::owner_attestation_path(Some(directory))?,
+                    &attestation,
+                )?;
                 attestation
             }
             None => load_or_refresh_owner_attestation(

@@ -76,6 +76,12 @@ Shared membership 'work': trust policy Off (no explicit store); peer owner trust
 Shared membership 'lab': trust policy Allowlist (store: /private/operator/lab-trust.json)
 ```
 
+Ownership certificates are saved and renewed in each attachment's own state
+directory. Renewal does not overwrite another attachment's certificate or the
+ordinary single-mesh node's `~/.mesh-llm/node-ownership.json`. If saving a renewed
+certificate fails, the node logs a warning and keeps using the renewed proof
+in memory; it does not fall back to the global certificate file.
+
 `--lan-only` disables public relay and STUN; otherwise the usual
 public relay transport is used, **without publishing the mesh to discovery**.
 Use `--bind-ip` to select a local QUIC interface for all attachments, each on

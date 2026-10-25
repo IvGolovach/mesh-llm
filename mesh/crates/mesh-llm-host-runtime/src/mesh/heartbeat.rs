@@ -493,6 +493,9 @@ impl Node {
         &self,
         fail_counts: &mut std::collections::HashMap<EndpointId, u32>,
     ) {
+        // Renewed before gossiping, so this cycle already carries it.
+        self.renew_owner_attestation_on_heartbeat(super::current_time_unix_ms())
+            .await;
         for (peer_id, conn) in self.selected_heartbeat_peers().await {
             let alive = self.probe_heartbeat_peer(peer_id, conn).await;
             self.record_heartbeat_result(peer_id, alive, fail_counts)

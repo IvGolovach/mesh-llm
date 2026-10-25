@@ -5,6 +5,7 @@ use serde_json::json;
 use std::net::SocketAddr;
 
 mod construction;
+mod ownership;
 mod routing_telemetry;
 mod startup;
 
