@@ -173,15 +173,39 @@ impl SharedServingHost {
         }))
     }
 
-    /// Initial joins are independent: one offline mesh cannot prevent another
-    /// from serving. Failures stay visible per membership and can be retried.
-    pub async fn connect_all(self: &Arc<Self>) {
+    /// Join independently, requiring at least one connected membership at completion.
+    /// Partial failures remain visible and can be retried without stopping healthy meshes.
+    pub async fn connect_all(self: &Arc<Self>) -> Result<()> {
         let joins = self.members.keys().map(|name| async move {
             if let Err(error) = self.reconnect(name).await {
                 tracing::warn!(membership = name, %error, "shared serving membership unavailable");
             }
         });
         futures_util::future::join_all(joins).await;
+        let connected = self
+            .members
+            .values()
+            .filter(|member| matches!(member.status.borrow().phase, MembershipPhase::Connected))
+            .count();
+        let total = self.members.len();
+        anyhow::ensure!(
+            connected > 0,
+            "shared serving startup failed: no memberships connected (0/{total}); inspect membership diagnostics"
+        );
+        let message = format!("Shared serving ready: {connected}/{total} memberships connected");
+        let event = if connected == total {
+            mesh_llm_events::OutputEvent::Info {
+                message,
+                context: None,
+            }
+        } else {
+            mesh_llm_events::OutputEvent::Warning {
+                message: format!("{message}; retry failed memberships through the control API"),
+                context: None,
+            }
+        };
+        let _ = mesh_llm_events::emit_event(event);
+        Ok(())
     }
 
     /// Replace one attachment after rereading its token, trust and binary proof.

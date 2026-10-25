@@ -266,6 +266,7 @@ fn owner_config(config: &ServingMembershipConfig) -> Result<crate::mesh::OwnerRu
         .as_deref()
         .map(super::super::startup_models::load_owner_keypair_for_runtime)
         .transpose()?;
+    let _ = mesh_llm_events::emit_event(trust_policy_event(config, trust_store.policy));
     Ok(crate::mesh::OwnerRuntimeConfig {
         keypair,
         control_bind: None,
@@ -280,9 +281,72 @@ fn owner_config(config: &ServingMembershipConfig) -> Result<crate::mesh::OwnerRu
     })
 }
 
+/// Report the effective policy on each attachment without exposing token or trust contents.
+fn trust_policy_event(
+    config: &ServingMembershipConfig,
+    policy: crate::crypto::TrustPolicy,
+) -> mesh_llm_events::OutputEvent {
+    let source = config.trust_store.as_ref().map_or_else(
+        || "no explicit store".to_owned(),
+        |path| format!("store: {}", path.display()),
+    );
+    let message = format!(
+        "Shared membership '{}': trust policy {policy:?} ({source})",
+        config.name
+    );
+    if policy == crate::crypto::TrustPolicy::Off {
+        mesh_llm_events::OutputEvent::Warning {
+            message: format!("{message}; peer owner trust is not enforced"),
+            context: None,
+        }
+    } else {
+        mesh_llm_events::OutputEvent::Info {
+            message,
+            context: None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    /// Make implicit and explicit Off policies visible without leaking credential contents.
+    fn trust_diagnostics_name_each_membership_and_its_effective_policy() {
+        use crate::crypto::TrustPolicy;
+        use mesh_llm_events::OutputEvent;
+        let mut config = ServingMembershipConfig {
+            name: "alpha".into(),
+            token_file: "never-display-token-path".into(),
+            trust_store: None,
+            owner_key: None,
+        };
+        let OutputEvent::Warning { message, .. } = trust_policy_event(&config, TrustPolicy::Off)
+        else {
+            panic!("implicit Off must warn")
+        };
+        assert!(message.contains("'alpha': trust policy Off (no explicit store)"));
+        assert!(!message.contains("never-display-token-path"));
+        config.name = "beta".into();
+        config.trust_store = Some("beta-trust.json".into());
+        let OutputEvent::Warning { message, .. } = trust_policy_event(&config, TrustPolicy::Off)
+        else {
+            panic!("an explicitly permissive policy must also warn")
+        };
+        assert!(message.contains("'beta': trust policy Off (store: beta-trust.json)"));
+        for policy in [
+            TrustPolicy::PreferOwned,
+            TrustPolicy::RequireOwned,
+            TrustPolicy::Allowlist,
+        ] {
+            let OutputEvent::Info { message, .. } = trust_policy_event(&config, policy) else {
+                panic!("configured trust policy must be reported")
+            };
+            assert!(message.contains(&format!("'beta': trust policy {policy:?}")));
+            assert!(message.contains("store: beta-trust.json"));
+        }
+    }
 
     #[test]
     /// An absent explicitly selected trust file must fail rather than use the implicit off policy.

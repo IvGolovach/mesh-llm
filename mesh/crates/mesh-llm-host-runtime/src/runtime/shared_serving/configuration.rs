@@ -159,6 +159,7 @@ pub(super) fn private_directory(path: &Path) -> Result<()> {
 
 /// Open a state file for reading and writing without truncating existing data.
 /// Reject symlinks; on Unix, create with mode 0600 and open with `O_NOFOLLOW`.
+/// Validate the opened file's permissions before any caller can rewrite its contents.
 pub(super) fn private_file(path: &Path) -> Result<std::fs::File> {
     let mut options = std::fs::OpenOptions::new();
     options.read(true).write(true).create(true);
@@ -171,7 +172,17 @@ pub(super) fn private_file(path: &Path) -> Result<std::fs::File> {
         !std::fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_symlink()),
         "shared state file must not be a symlink"
     );
-    Ok(options.open(path)?)
+    let file = options.open(path)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        ensure!(
+            file.metadata()?.permissions().mode() & 0o077 == 0,
+            "shared state file must be private (mode 0600): {}",
+            path.display()
+        );
+    }
+    Ok(file)
 }
 
 #[cfg(test)]
@@ -223,6 +234,34 @@ mod tests {
             std::fs::write(&path, &token).unwrap();
             let message = read_join_token(&path).unwrap_err().to_string();
             assert!(!message.contains(&token));
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    /// Reject permissive existing credentials and lock files without rewriting or chmod repair.
+    fn state_files_require_private_existing_permissions_and_preserve_contents() {
+        use std::os::unix::fs::PermissionsExt;
+        let directory = tempfile::tempdir().unwrap();
+        for name in ["management.token", "host.lock"] {
+            let path = directory.path().join(name);
+            let file = private_file(&path).unwrap();
+            assert_eq!(file.metadata().unwrap().permissions().mode() & 0o077, 0);
+            drop(file);
+            std::fs::write(&path, "unchanged").unwrap();
+            for mode in [0o640, 0o604, 0o666] {
+                std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode)).unwrap();
+                let error = private_file(&path).unwrap_err();
+                assert!(error.to_string().contains("must be private"));
+                assert_eq!(std::fs::read_to_string(&path).unwrap(), "unchanged");
+                assert_eq!(
+                    std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+                    mode
+                );
+            }
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+            private_file(&path).unwrap();
+            assert_eq!(std::fs::read_to_string(&path).unwrap(), "unchanged");
         }
     }
 

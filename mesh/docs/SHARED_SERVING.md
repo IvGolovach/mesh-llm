@@ -53,6 +53,9 @@ mesh-llm serve-shared \
 The state directory is created privately on Unix; an existing directory must
 have mode `0700` and cannot be a symlink. It must be dedicated to this host, not
 the ordinary `~/.mesh-llm` directory. A process lock prevents two hosts using it.
+On Unix, the management token and host lock are created with mode `0600`;
+existing files with any group or other permissions are rejected before their
+contents are changed. Correct their permissions explicitly before restarting.
 Membership labels accept ASCII letters, digits, `_` and `-` only and must be
 unique ignoring case, so their state directories stay distinct on macOS and
 Windows too. They identify local attachments, not public mesh names. At most
@@ -63,7 +66,17 @@ existing trust-store format for that attachment. `--attestation-key` selects an
 existing owner keystore; the owner signs each endpoint separately. Without an
 explicit trust store, the existing `off` trust policy applies. These settings
 are not inherited from the normal single-mesh config, and are not remotely
-synchronized. `--lan-only` disables public relay and STUN; otherwise the usual
+synchronized. Once its inputs are loaded, each attachment attempt, including
+reconnect, reports its name, effective trust policy and explicit store path
+(or `no explicit store`). An
+`Off` policy emits a warning that peer owner trust is not enforced. For example:
+
+```text
+Shared membership 'work': trust policy Off (no explicit store); peer owner trust is not enforced
+Shared membership 'lab': trust policy Allowlist (store: /private/operator/lab-trust.json)
+```
+
+`--lan-only` disables public relay and STUN; otherwise the usual
 public relay transport is used, **without publishing the mesh to discovery**.
 Use `--bind-ip` to select a local QUIC interface for all attachments, each on
 its own ephemeral port. `--lan-only --bind-ip 127.0.0.1` keeps a same-machine
@@ -117,6 +130,12 @@ is never advertised over gossip. All management requests require it in an
 | `POST /api/shared-serving/memberships/work/reconnect` | Re-read its token/trust inputs and reconnect with its saved endpoint key and a fresh execution scope |
 
 An unavailable mesh is reported as failed without stopping successful joins.
+After initial joins finish, the command reports the connected membership count.
+If none connected, startup fails with a nonzero exit status, closes the control
+listener and releases the model and state lock. Correct the inputs and restart.
+With at least one connected membership, serving continues and failed memberships
+can be retried through the control API. The control URL announced during startup
+indicates management availability, not successful mesh admission.
 Admission by the seed is sufficient to start serving; discovery of secondary
 peers runs in the background, so a stale peer cannot stall an otherwise valid
 attachment.

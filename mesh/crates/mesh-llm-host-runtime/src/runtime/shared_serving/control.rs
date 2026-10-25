@@ -95,6 +95,16 @@ pub(super) fn router(host: Arc<SharedServingHost>, token: &str) -> Router {
 pub async fn run_shared_serving(config: SharedServingConfig, management_port: u16) -> Result<()> {
     let token_path = config.state_dir.join("management.token");
     let host = SharedServingHost::load(config).await?;
+    serve(host, token_path, management_port, shutdown_signal()).await
+}
+
+/// Keep operator control responsive during joins, then drain on failure or shutdown.
+pub(super) async fn serve(
+    host: Arc<SharedServingHost>,
+    token_path: std::path::PathBuf,
+    management_port: u16,
+    shutdown: impl std::future::Future<Output = Result<()>>,
+) -> Result<()> {
     let token = format!(
         "{}{}",
         uuid::Uuid::new_v4().simple(),
@@ -118,19 +128,38 @@ pub async fn run_shared_serving(config: SharedServingConfig, management_port: u1
         ),
         context: None,
     });
-    let result = tokio::select! {
-        signal = shutdown_signal() => signal,
-        () = async { host.connect_all().await; std::future::pending::<()>().await } => unreachable!(),
-        stopped = &mut server => match stopped {
-            Ok(Ok(())) => Err(anyhow::anyhow!("shared serving management listener stopped")),
-            Ok(Err(error)) => Err(error.into()),
-            Err(error) => Err(error.into()),
-        },
-    };
+    let result = supervise(&host, &mut server, shutdown).await;
     control_shutdown.cancel();
-    server.abort();
+    if !server.is_finished() {
+        server.abort();
+        let _ = server.await;
+    }
     host.shutdown().await?;
     result
+}
+
+/// Observe initial admission exactly once without hiding total failure or blocking control.
+async fn supervise(
+    host: &Arc<SharedServingHost>,
+    server: &mut tokio::task::JoinHandle<std::io::Result<()>>,
+    shutdown: impl std::future::Future<Output = Result<()>>,
+) -> Result<()> {
+    let joining = host.connect_all();
+    tokio::pin!(joining, shutdown);
+    let mut starting = true;
+    loop {
+        tokio::select! {
+            signal = &mut shutdown => return signal,
+            joined = &mut joining, if starting => {
+                joined?;
+                starting = false;
+            }
+            stopped = &mut *server => {
+                stopped??;
+                anyhow::bail!("shared serving management listener stopped");
+            }
+        }
+    }
 }
 
 /// Wait for Ctrl-C or, on Unix, SIGTERM before draining the shared host.

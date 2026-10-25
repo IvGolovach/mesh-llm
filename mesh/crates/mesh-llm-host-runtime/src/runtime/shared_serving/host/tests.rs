@@ -11,6 +11,7 @@ mod native;
 mod reconnect;
 mod release_attestation;
 mod released_peer;
+mod startup;
 mod trust;
 
 #[test]
@@ -102,6 +103,18 @@ struct Fixture {
 impl Fixture {
     /// Start two independent loopback seed meshes sharing one recording backend.
     async fn new() -> Self {
+        let fixture = Self::detached().await;
+        let (alpha, beta) = tokio::join!(
+            fixture.host.reconnect("alpha"),
+            fixture.host.reconnect("beta")
+        );
+        alpha.expect("alpha fixture must join its independent seed");
+        beta.expect("beta fixture must join its independent seed");
+        fixture
+    }
+
+    /// Construct a loaded host and independent seeds before attempting any memberships.
+    async fn detached() -> Self {
         let directory = tempfile::tempdir().unwrap();
         let backend = Arc::new(RecordingBackend::default());
         let mut seeds = Vec::new();
@@ -150,9 +163,6 @@ impl Fixture {
         };
         let host =
             SharedServingHost::assemble(config, descriptor, backend.clone(), None, lock).unwrap();
-        let (alpha, beta) = tokio::join!(host.reconnect("alpha"), host.reconnect("beta"));
-        alpha.expect("alpha fixture must join its independent seed");
-        beta.expect("beta fixture must join its independent seed");
         Self {
             host,
             backend,
