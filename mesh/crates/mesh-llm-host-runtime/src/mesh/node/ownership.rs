@@ -16,9 +16,10 @@ impl Node {
     /// A failed disk write must not discard the renewed in-memory certificate or
     /// fall back to another identity's storage.
     fn save_renewed_owner_attestation(&self, renewed: &SignedNodeOwnership) {
-        let saved = owner_attestation_path(self.identity_state_dir.as_deref())
-            .and_then(|path| save_node_ownership(&path, renewed).map_err(anyhow::Error::from));
-        if let Err(error) = saved {
+        let Some(path) = &self.owner_attestation_path else {
+            return;
+        };
+        if let Err(error) = save_node_ownership(path, renewed) {
             tracing::warn!("could not save the renewed ownership certificate: {error:#}");
         }
     }

@@ -143,8 +143,9 @@ impl Node {
             served_model_descriptors: self.served_model_descriptors.lock().await.clone(),
             served_model_runtime: self.model_runtime_descriptors.lock().await.clone(),
             owner_attestation: self.owner_attestation.lock().await.clone(),
-            artifact_transfer_supported:
-                crate::models::artifact_transfer::artifact_transfer_advertised(&owner_summary),
+            // A membership carries no stage transport, so no artifacts either.
+            artifact_transfer_supported: !self.is_membership
+                && crate::models::artifact_transfer::artifact_transfer_advertised(&owner_summary),
             advertised_model_throughput,
             #[cfg(feature = "payments")]
             lightning_offers: self.advertised_payment_offers().await.unwrap_or_default(),
@@ -232,8 +233,8 @@ impl Node {
             release_attestation: data.release_attestation,
             direct_admission_proof: data.direct_admission_proof,
             artifact_transfer_supported: !self.full_model_only && data.artifact_transfer_supported,
-            stage_protocol_generation_supported: !self.full_model_only,
-            stage_status_list_supported: !self.full_model_only,
+            stage_protocol_generation_supported: !self.full_model_only && !self.is_membership,
+            stage_status_list_supported: !self.full_model_only && !self.is_membership,
             local_gguf_content_id_supported: !self.full_model_only,
             // Full-model attachments cannot participate in stage scheduling.
             // Ordinary nodes support this independently of build features.

@@ -231,6 +231,14 @@ impl Node {
             runtime_instance_lifecycles: Arc::new(std::sync::Mutex::new(HashMap::new())),
             owner_lifecycle_response_cache: OwnerLifecycleResponseCache::default(),
             model_intent_tx: Arc::new(tokio::sync::Mutex::new(None)),
+            memberships: MeshMemberships::default(),
+            owner_attestation_path: saved_owner_attestation_path(
+                identity
+                    .as_ref()
+                    .map(|identity| identity.state_dir.as_path()),
+            ),
+            local_endpoints: LocalEndpoints::default(),
+            is_membership: false,
         };
 
         node.maybe_start_control_listener(

@@ -5,8 +5,8 @@ use crate::crypto::{
     OwnerKeypair, TrustPolicy, TrustStore, load_node_ownership, verify_node_ownership,
 };
 use crate::mesh::{
-    NodeRole, NodeStartupSpec, OwnerRuntimeConfig, QuicBindSelection, RelayConfig, RelayPolicy,
-    ScopedNodeIdentity,
+    MembershipNodeConfig, NodeRole, NodeStartupSpec, OwnerRuntimeConfig, QuicBindSelection,
+    RelayConfig, RelayPolicy, ScopedNodeIdentity,
 };
 
 const DAY_MS: u64 = 24 * 60 * 60 * 1000;
@@ -85,6 +85,7 @@ async fn ordinary_node() -> Node {
     )
     .unwrap();
     node.owner_keypair = config.keypair;
+    node.owner_attestation_path = super::super::startup::saved_owner_attestation_path(None);
     *node.owner_attestation.lock().await = runtime.owner_attestation;
     node
 }
@@ -161,6 +162,66 @@ async fn scoped_renewal_preserves_other_memberships_and_the_ordinary_certificate
     assert_eq!(std::fs::read(&beta_path).unwrap(), beta_after);
     alpha.close_endpoint().await;
     beta.close_endpoint().await;
+    ordinary.close_endpoint().await;
+}
+
+#[tokio::test]
+async fn sdk_membership_renewal_preserves_scoped_and_default_certificates() {
+    if !isolated_home(concat!(
+        module_path!(),
+        "::sdk_membership_renewal_preserves_scoped_and_default_certificates"
+    )) {
+        return;
+    }
+    let directory = tempfile::tempdir().unwrap();
+    let ordinary = ordinary_node().await;
+    let default_path = default_node_ownership_path().unwrap();
+    let default_before = std::fs::read(&default_path).unwrap();
+    let scoped = scoped_node(directory.path(), "scoped", 0x61).await;
+    let scoped_path = directory.path().join("node-ownership.json");
+    let scoped_before = std::fs::read(&scoped_path).unwrap();
+    let owners = [scoped.owner_keypair.as_ref().unwrap().owner_id()];
+    let (membership, _) = scoped
+        .start_membership_node(MembershipNodeConfig {
+            mesh_name: "sdk-membership",
+            secret_key: iroh::SecretKey::generate(),
+            relay: RelayConfig {
+                urls: &[],
+                auths: &Default::default(),
+                policy: RelayPolicy::ExplicitlyDisabled,
+            },
+            quic_port: None,
+            trusted_owners: &owners,
+            enumerate_host: false,
+        })
+        .await
+        .unwrap();
+    assert!(membership.owner_attestation_path.is_none());
+    let initial = membership.owner_attestation.lock().await.clone().unwrap();
+    let now = initial.claim.expires_at_unix_ms - DAY_MS;
+    membership.renew_owner_attestation_on_heartbeat(now).await;
+    let renewed = membership.owner_attestation.lock().await.clone().unwrap();
+    assert_ne!(renewed.claim.cert_id, initial.claim.cert_id);
+    assert!(
+        verify_node_ownership(
+            Some(&renewed),
+            membership.id().as_bytes(),
+            &TrustStore::default(),
+            TrustPolicy::Off,
+            now,
+        )
+        .verified
+    );
+    assert_eq!(std::fs::read(&scoped_path).unwrap(), scoped_before);
+    assert_eq!(std::fs::read(&default_path).unwrap(), default_before);
+    renew_and_check(&scoped, &scoped_path).await;
+    assert_eq!(
+        membership.owner_attestation.lock().await.as_ref(),
+        Some(&renewed)
+    );
+    assert_eq!(std::fs::read(&default_path).unwrap(), default_before);
+    membership.close_endpoint().await;
+    scoped.close_endpoint().await;
     ordinary.close_endpoint().await;
 }
 

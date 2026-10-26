@@ -86,6 +86,7 @@ async fn resolve_model_identifier_rejects_direct_urls() {
 #[tokio::test]
 #[serial]
 async fn resolve_model_identifier_returns_all_split_shards_from_selector_ref() {
+    let _catalog = crate::models::remote_catalog::set_catalog_entries_for_test(vec![]);
     let prev_hub_cache = std::env::var_os("HF_HUB_CACHE");
     let prev_hf_home = std::env::var_os("HF_HOME");
     let prev_xdg = std::env::var_os("XDG_CACHE_HOME");
@@ -138,6 +139,7 @@ async fn resolve_model_identifier_returns_all_split_shards_from_selector_ref() {
 #[tokio::test]
 #[serial]
 async fn delete_model_by_identifier_removes_only_the_resolved_split_shards() {
+    let _catalog = crate::models::remote_catalog::set_catalog_entries_for_test(vec![]);
     let prev_hub_cache = std::env::var_os("HF_HUB_CACHE");
     let prev_hf_home = std::env::var_os("HF_HOME");
     let prev_xdg = std::env::var_os("XDG_CACHE_HOME");
@@ -196,6 +198,7 @@ async fn delete_model_by_identifier_removes_only_the_resolved_split_shards() {
 #[tokio::test]
 #[serial]
 async fn delete_model_by_identifier_supports_dotted_quant_selector_refs() {
+    let _catalog = crate::models::remote_catalog::set_catalog_entries_for_test(vec![]);
     let prev_hub_cache = std::env::var_os("HF_HUB_CACHE");
     let prev_hf_home = std::env::var_os("HF_HOME");
     let prev_xdg = std::env::var_os("XDG_CACHE_HOME");
@@ -248,6 +251,7 @@ async fn delete_model_by_identifier_supports_dotted_quant_selector_refs() {
 #[tokio::test]
 #[serial]
 async fn resolve_model_identifier_repo_ref_matches_shared_resolver_semantics() {
+    let _catalog = crate::models::remote_catalog::set_catalog_entries_for_test(vec![]);
     let prev_hub_cache = std::env::var_os("HF_HUB_CACHE");
     let prev_hf_home = std::env::var_os("HF_HOME");
     let prev_xdg = std::env::var_os("XDG_CACHE_HOME");
@@ -325,6 +329,7 @@ async fn resolve_model_identifier_repo_ref_matches_shared_resolver_semantics() {
 #[tokio::test]
 #[serial]
 async fn resolve_model_identifier_repo_ref_returns_all_layered_package_files() {
+    let _catalog = crate::models::remote_catalog::set_catalog_entries_for_test(vec![]);
     let prev_hub_cache = std::env::var_os("HF_HUB_CACHE");
     let prev_hf_home = std::env::var_os("HF_HOME");
     let prev_xdg = std::env::var_os("XDG_CACHE_HOME");
@@ -407,6 +412,7 @@ async fn resolve_model_identifier_repo_ref_returns_all_layered_package_files() {
 #[tokio::test]
 #[serial]
 async fn resolve_model_identifier_rejects_layers_repo_without_package_ggufs() {
+    let _catalog = crate::models::remote_catalog::set_catalog_entries_for_test(vec![]);
     let prev_hub_cache = std::env::var_os("HF_HUB_CACHE");
     let prev_hf_home = std::env::var_os("HF_HOME");
     let prev_xdg = std::env::var_os("XDG_CACHE_HOME");
@@ -454,6 +460,7 @@ async fn resolve_model_identifier_rejects_layers_repo_without_package_ggufs() {
 #[tokio::test]
 #[serial]
 async fn delete_model_by_identifier_removes_all_layered_package_files() {
+    let _catalog = crate::models::remote_catalog::set_catalog_entries_for_test(vec![]);
     let prev_hub_cache = std::env::var_os("HF_HUB_CACHE");
     let prev_hf_home = std::env::var_os("HF_HOME");
     let prev_xdg = std::env::var_os("XDG_CACHE_HOME");
