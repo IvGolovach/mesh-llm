@@ -134,8 +134,17 @@ pub(super) async fn serve(
         server.abort();
         let _ = server.await;
     }
-    host.shutdown().await?;
-    result
+    match (result, host.shutdown().await) {
+        (Err(error), Err(cleanup_error)) => {
+            tracing::warn!(
+                error = %format!("{cleanup_error:#}"),
+                "shared serving cleanup failed after serving failure"
+            );
+            Err(error)
+        }
+        (result, Ok(())) => result,
+        (Ok(()), Err(error)) => Err(error),
+    }
 }
 
 /// Observe initial admission exactly once without hiding total failure or blocking control.

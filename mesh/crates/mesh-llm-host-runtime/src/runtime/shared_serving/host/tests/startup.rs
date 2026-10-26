@@ -1,5 +1,96 @@
 use super::*;
 use crate::runtime::shared_serving::control;
+use skippy_inference_api::CancellationToken;
+
+#[tokio::test]
+/// Preserve total startup failure when draining retained execution leases also fails.
+async fn startup_failure_survives_cleanup_error() {
+    use tracing::instrument::WithSubscriber;
+
+    let fixture = Fixture::detached().await;
+    for member in &fixture.host.config.memberships {
+        std::fs::write(&member.token_file, "invalid-invite-token").unwrap();
+    }
+    let admission = &fixture.host.admission;
+    let lease = admission
+        .acquire(admission.register(0), CancellationToken::new())
+        .await
+        .unwrap();
+    let log = tempfile::NamedTempFile::new().unwrap();
+    let subscriber = tracing_subscriber::fmt()
+        .json()
+        .with_ansi(false)
+        .with_writer(log.reopen().unwrap())
+        .finish();
+
+    tokio::time::pause();
+    let started = tokio::time::Instant::now();
+    let result = control::serve(
+        fixture.host.clone(),
+        fixture.host.config.state_dir.join("management.token"),
+        0,
+        std::future::pending(),
+    )
+    .with_subscriber(subscriber)
+    .await;
+    let elapsed = started.elapsed();
+    tokio::time::resume();
+    drop(lease);
+    fixture.close().await;
+
+    let error = result.unwrap_err().to_string();
+    assert!(error.contains("no memberships connected (0/2)"), "{error}");
+    assert!(
+        elapsed >= Duration::from_secs(30),
+        "cleanup must be awaited"
+    );
+    let records: Vec<serde_json::Value> = std::fs::read_to_string(log.path())
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    let warning = records
+        .iter()
+        .find(|record| {
+            record["fields"]["message"] == "shared serving cleanup failed after serving failure"
+        })
+        .expect("secondary cleanup failure must remain visible in diagnostics");
+    assert_eq!(warning["level"], "WARN");
+    let cleanup_error = warning["fields"]["error"].as_str().unwrap();
+    assert!(cleanup_error.contains("shared host has not drained"));
+    assert!(cleanup_error.contains("deadline has elapsed"));
+}
+
+#[tokio::test]
+/// A successful shutdown signal must not hide a failure to drain active execution.
+async fn orderly_stop_returns_cleanup_error() {
+    let fixture = Fixture::detached().await;
+    let admission = &fixture.host.admission;
+    let lease = admission
+        .acquire(admission.register(0), CancellationToken::new())
+        .await
+        .unwrap();
+
+    tokio::time::pause();
+    let result = control::serve(
+        fixture.host.clone(),
+        fixture.host.config.state_dir.join("management.token"),
+        0,
+        std::future::ready(Ok(())),
+    )
+    .await;
+    tokio::time::resume();
+    drop(lease);
+    fixture.close().await;
+
+    let error = result.unwrap_err();
+    assert!(error.to_string().contains("shared host has not drained"));
+    assert!(
+        error
+            .downcast_ref::<tokio::time::error::Elapsed>()
+            .is_some()
+    );
+}
 
 #[tokio::test]
 /// A total initial join failure terminates foreground serving and releases the loaded host lock.
