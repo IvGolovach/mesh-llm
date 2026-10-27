@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "mode": "public-hub",
-  "standard_revision": "e02a097c2b7166e5caded20ea19b3c2b2316905c",
+  "standard_revision": "45f2772b2e3617dd00db420174fb9dedd2ac800a",
   "jobs": {
     ".github/workflows/ci-routing.yml:routing": {
       "assignment": {
