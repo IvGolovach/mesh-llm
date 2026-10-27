@@ -200,6 +200,7 @@ async fn sdk_membership_renewal_preserves_scoped_and_default_certificates() {
     let initial = membership.owner_attestation.lock().await.clone().unwrap();
     let now = initial.claim.expires_at_unix_ms - DAY_MS;
     membership.renew_owner_attestation_on_heartbeat(now).await;
+    assert!(membership.unsaved_owner_attestation.lock().await.is_none());
     let renewed = membership.owner_attestation.lock().await.clone().unwrap();
     assert_ne!(renewed.claim.cert_id, initial.claim.cert_id);
     assert!(
@@ -239,6 +240,10 @@ async fn failed_scoped_persistence_keeps_renewed_identity_without_global_fallbac
     let default_before = std::fs::read(&default_path).unwrap();
     let scoped_dir = directory.path().join("alpha");
     let scoped = scoped_node(&scoped_dir, "alpha", 0x61).await;
+    let beta_dir = directory.path().join("beta");
+    let beta = scoped_node(&beta_dir, "beta", 0x71).await;
+    let beta_path = beta_dir.join("node-ownership.json");
+    let beta_before = std::fs::read(&beta_path).unwrap();
     let path = scoped_dir.join("node-ownership.json");
     let initial = load_node_ownership(&path).unwrap();
     // A directory at the certificate destination deterministically rejects atomic rename.
@@ -263,7 +268,26 @@ async fn failed_scoped_persistence_keeps_renewed_identity_without_global_fallbac
         .verified
     );
     assert!(path.is_dir());
+    assert_eq!(
+        scoped.unsaved_owner_attestation.lock().await.as_ref(),
+        Some(&renewed)
+    );
+    assert_eq!(std::fs::read(&beta_path).unwrap(), beta_before);
     assert_eq!(std::fs::read(&default_path).unwrap(), default_before);
+
+    // A later ordinary heartbeat retries only alpha's file, without re-signing.
+    std::fs::remove_dir(&path).unwrap();
+    scoped.run_heartbeat_cycle(&mut Default::default()).await;
+    assert_eq!(load_node_ownership(&path).unwrap(), renewed);
+    assert!(scoped.unsaved_owner_attestation.lock().await.is_none());
+    assert_eq!(std::fs::read(&beta_path).unwrap(), beta_before);
+    assert_eq!(std::fs::read(&default_path).unwrap(), default_before);
+
+    // Successful persistence clears the pending write rather than rewriting forever.
+    std::fs::remove_file(&path).unwrap();
+    scoped.run_heartbeat_cycle(&mut Default::default()).await;
+    assert!(!path.exists());
     scoped.close_endpoint().await;
+    beta.close_endpoint().await;
     ordinary.close_endpoint().await;
 }

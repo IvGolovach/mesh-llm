@@ -90,6 +90,8 @@ pub(crate) const CONNECTION_LOOP: ConnectionLoopFn =
         let authenticated_peer = peer_state.load(Ordering::Acquire);
         Box::pin(async move {
             let result: Result<()> = async {
+                // Started by the first status publication, if any.
+                let mut status_lane = None;
                 loop {
                     tokio::select! {
                         maybe_outbound = outbound_rx.recv() => {
@@ -163,6 +165,21 @@ pub(crate) const CONNECTION_LOOP: ConnectionLoopFn =
                                         outbound_tx.clone(),
                                     );
                                 }
+                                Some(super::proto::envelope::Payload::PublishPluginStatusRequest(request)) => {
+                                    // Shown under the connection's own name,
+                                    // so one plugin cannot publish as another.
+                                    status_lane
+                                        .get_or_insert_with(|| {
+                                            super::runtime::status_publication::StatusLane::spawn(
+                                                plugin_name.clone(),
+                                                generation,
+                                                runtime.clone(),
+                                                mesh_tx.clone(),
+                                                outbound_tx.clone(),
+                                            )
+                                        })
+                                        .push(request_id, request);
+                                }
                                 Some(super::proto::envelope::Payload::RpcRequest(request)) => {
                                     forward_plugin_request(
                                         plugin_name.clone(),
@@ -224,9 +241,26 @@ pub(crate) const CONNECTION_LOOP: ConnectionLoopFn =
                         "Plugin connection closed"
                     );
                 }
+                // The plugin went away by itself (it crashed or exited), so the
+                // supervisor starts it again on its next round. A shutdown or a
+                // disable that takes the runtime first never gets here; one that
+                // runs once it is gone finds nothing to stop and settles the
+                // status itself, which stays: a disabled plugin must stay down.
                 let mut summary = summary.lock().await;
-                summary.status = "stopped".into();
-                summary.error = Some(format!("Plugin '{}' disconnected", plugin_name));
+                if !matches!(
+                    summary.status.as_str(),
+                    "shutting down" | "stopped" | "disabled"
+                ) {
+                    summary.status = "restarting".into();
+                    summary.pid = None;
+                    summary.error = Some(format!("Plugin '{}' disconnected", plugin_name));
+                }
+                drop(summary);
+                super::runtime::status_publication::announce_disconnected(
+                    &mesh_tx,
+                    &plugin_name,
+                    generation,
+                );
             }
 
             let mut pending = pending.lock().await;

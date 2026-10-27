@@ -237,6 +237,7 @@ impl Node {
                     .as_ref()
                     .map(|identity| identity.state_dir.as_path()),
             ),
+            unsaved_owner_attestation: Arc::default(),
             local_endpoints: LocalEndpoints::default(),
             is_membership: false,
         };

@@ -13,14 +13,22 @@ pub(super) fn owner_attestation_path(identity_directory: Option<&Path>) -> anyho
 }
 
 impl Node {
+    /// Retry failed writes on every heartbeat, within this identity's storage.
     /// A failed disk write must not discard the renewed in-memory certificate or
     /// fall back to another identity's storage.
-    fn save_renewed_owner_attestation(&self, renewed: &SignedNodeOwnership) {
+    async fn save_renewed_owner_attestation(&self) {
         let Some(path) = &self.owner_attestation_path else {
             return;
         };
-        if let Err(error) = save_node_ownership(path, renewed) {
-            tracing::warn!("could not save the renewed ownership certificate: {error:#}");
+        let mut unsaved = self.unsaved_owner_attestation.lock().await;
+        let Some(renewed) = unsaved.as_ref() else {
+            return;
+        };
+        match save_node_ownership(path, renewed) {
+            Ok(()) => *unsaved = None,
+            Err(error) => tracing::warn!(
+                "could not save the renewed ownership certificate, retrying on the next heartbeat: {error:#}"
+            ),
         }
     }
 
@@ -34,13 +42,16 @@ impl Node {
                     expires_at_unix_ms = renewed.claim.expires_at_unix_ms,
                     "renewed this node's ownership certificate"
                 );
-                self.save_renewed_owner_attestation(&renewed);
+                if self.owner_attestation_path.is_some() {
+                    *self.unsaved_owner_attestation.lock().await = Some(renewed);
+                }
             }
             Ok(None) => {}
             Err(error) => tracing::warn!(
                 "could not renew this node's ownership certificate, retrying on the next heartbeat: {error:#}"
             ),
         }
+        self.save_renewed_owner_attestation().await;
     }
 
     /// Swaps in a renewed ownership certificate, and the summary `/api/status`

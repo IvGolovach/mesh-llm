@@ -100,3 +100,55 @@ async fn a_node_without_an_owner_key_has_no_certificate_to_renew() {
             .is_none()
     );
 }
+
+/// A failed write is retried even though the renewed certificate is no longer due.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_failed_save_of_the_renewed_certificate_is_retried_on_the_next_heartbeat() {
+    use crate::crypto::sign_node_ownership;
+    const DAY_MS: u64 = 24 * 60 * 60 * 1000;
+    let owner = crate::crypto::OwnerKeypair::from_bytes(&[0xd1; 32], &[0xd2; 32]).unwrap();
+    let dir = tempfile::tempdir().expect("temp dir");
+    // A file where the ownership file's directory should be: writes fail.
+    let blocker = dir.path().join("identity");
+    std::fs::write(&blocker, b"not a directory").expect("blocker");
+    let ownership_file = blocker.join("node-ownership.json");
+    let mut node = Node::new_for_tests(NodeRole::Worker)
+        .await
+        .expect("test node");
+    node.owner_keypair = Some(owner.clone());
+    node.owner_attestation_path = Some(ownership_file.clone());
+    let due = sign_node_ownership(
+        &owner,
+        node.id().as_bytes(),
+        crate::mesh::current_time_unix_ms() + DAY_MS,
+        None,
+        None,
+    )
+    .expect("sign a certificate a day from expiry");
+    *node.owner_attestation.lock().await = Some(due);
+
+    node.run_heartbeat_cycle(&mut Default::default()).await;
+    let renewed = node
+        .owner_attestation
+        .lock()
+        .await
+        .clone()
+        .expect("the node keeps a certificate");
+    assert!(renewed.claim.expires_at_unix_ms > crate::mesh::current_time_unix_ms() + 6 * DAY_MS);
+    assert!(!ownership_file.exists(), "the write failed");
+
+    // The pending save must succeed without another certificate renewal.
+    std::fs::remove_file(&blocker).expect("unblock");
+    node.run_heartbeat_cycle(&mut Default::default()).await;
+    let saved: SignedNodeOwnership = serde_json::from_str(
+        &std::fs::read_to_string(&ownership_file).expect("written on the next heartbeat"),
+    )
+    .expect("a certificate");
+    assert_eq!(saved, renewed);
+    assert!(node.unsaved_owner_attestation.lock().await.is_none());
+
+    // Once saved, a heartbeat writes nothing more.
+    std::fs::remove_file(&ownership_file).expect("remove");
+    node.run_heartbeat_cycle(&mut Default::default()).await;
+    assert!(!ownership_file.exists());
+}
