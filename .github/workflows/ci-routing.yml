@@ -1,0 +1,25 @@
+name: CI routing policy
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-routing-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  routing:
+    name: CI routing policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Check reviewed CI routes
+        run: |
+          python3 -m venv "$RUNNER_TEMP/ci-routing"
+          "$RUNNER_TEMP/ci-routing/bin/pip" install -r .github/ci-tools/requirements-routing.txt
+          "$RUNNER_TEMP/ci-routing/bin/python" .github/ci-tools/routing_guard.py

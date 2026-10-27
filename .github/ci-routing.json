@@ -1,0 +1,119 @@
+{
+  "schema": 1,
+  "mode": "public-hub",
+  "standard_revision": "45f2772b2e3617dd00db420174fb9dedd2ac800a",
+  "jobs": {
+    ".github/workflows/ci-routing.yml:routing": {
+      "assignment": {
+        "runs-on": "ubuntu-latest"
+      },
+      "platform": "public-hosted"
+    },
+    ".github/workflows/ci.yml:changes": {
+      "assignment": {
+        "runs-on": "ubuntu-latest"
+      },
+      "platform": "public-hosted"
+    },
+    ".github/workflows/ci.yml:linux": {
+      "assignment": {
+        "runs-on": "ubuntu-latest"
+      },
+      "platform": "public-hosted"
+    },
+    ".github/workflows/ci.yml:macos": {
+      "assignment": {
+        "runs-on": "macos-latest"
+      },
+      "platform": "public-hosted"
+    },
+    ".github/workflows/ci.yml:linux_cuda": {
+      "assignment": {
+        "runs-on": "ubuntu-latest"
+      },
+      "platform": "public-hosted"
+    },
+    ".github/workflows/ci.yml:linux_rocm": {
+      "assignment": {
+        "runs-on": "ubuntu-latest"
+      },
+      "platform": "public-hosted"
+    },
+    ".github/workflows/ci.yml:linux_vulkan": {
+      "assignment": {
+        "runs-on": "ubuntu-latest"
+      },
+      "platform": "public-hosted"
+    },
+    ".github/workflows/ci.yml:windows": {
+      "assignment": {
+        "runs-on": "windows-2022",
+        "matrix": {
+          "include": [
+            {
+              "name": "CPU",
+              "backend": "cpu"
+            },
+            {
+              "name": "CUDA",
+              "backend": "cuda"
+            },
+            {
+              "name": "ROCm",
+              "backend": "rocm"
+            },
+            {
+              "name": "Vulkan",
+              "backend": "vulkan"
+            }
+          ]
+        }
+      },
+      "platform": "public-hosted"
+    },
+    ".github/workflows/release.yml:build": {
+      "assignment": {
+        "runs-on": "${{ matrix.os }}",
+        "matrix": {
+          "include": [
+            {
+              "name": "Linux CPU",
+              "os": "ubuntu-latest",
+              "artifact_name": "release-linux-cpu"
+            },
+            {
+              "name": "macOS",
+              "os": "macos-14",
+              "artifact_name": "release-macos"
+            }
+          ]
+        }
+      },
+      "platform": "public-hosted"
+    },
+    ".github/workflows/release.yml:build_linux_cuda": {
+      "assignment": {
+        "runs-on": "ubuntu-latest"
+      },
+      "platform": "public-hosted"
+    },
+    ".github/workflows/release.yml:build_linux_amd": {
+      "assignment": {
+        "runs-on": "ubuntu-latest"
+      },
+      "platform": "public-hosted"
+    },
+    ".github/workflows/release.yml:build_linux_vulkan": {
+      "assignment": {
+        "runs-on": "ubuntu-latest"
+      },
+      "platform": "public-hosted"
+    },
+    ".github/workflows/release.yml:publish": {
+      "assignment": {
+        "runs-on": "ubuntu-latest"
+      },
+      "platform": "public-hosted"
+    }
+  }
+}
