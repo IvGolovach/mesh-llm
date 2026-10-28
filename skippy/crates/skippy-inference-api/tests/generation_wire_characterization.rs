@@ -3,6 +3,10 @@
 //! Only frontend-generated IDs/timestamps are normalized; scripted backend IDs,
 //! tool IDs, payloads, errors, optional fields and SSE ordering remain exact.
 
+use skippy_inference_api::generation::{
+    GeneratedMessage, GenerationChoice, GenerationEvent, GenerationEventStream, GenerationRequest,
+    GenerationResponse,
+};
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},
@@ -14,10 +18,9 @@ use futures_util::stream;
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use skippy_inference_api::{
-    AssistantMessage, ChatCompletionChoice, ChatCompletionChunk, ChatCompletionRequest,
-    ChatCompletionResponse, ChatCompletionStream, FinishReason, InferenceBackend, InferenceError,
-    InferenceFrontendConfig, InferenceRequestContext, InferenceResult, ModelObject,
-    SystemOneRequest, SystemOneResponse, Usage, router_for_with_config,
+    FinishReason, InferenceBackend, InferenceError, InferenceFrontendConfig,
+    InferenceRequestContext, InferenceResult, ModelObject, SystemOneRequest, SystemOneResponse,
+    Usage, router_for_with_config,
 };
 use tower::ServiceExt;
 
@@ -29,9 +32,9 @@ struct ScriptedBackend {
 }
 
 impl ScriptedBackend {
-    fn record(&self, request: &ChatCompletionRequest, context: Option<&InferenceRequestContext>) {
+    fn record(&self, request: &GenerationRequest, context: Option<&InferenceRequestContext>) {
         self.requests.lock().unwrap().push(json!({
-            "request": request,
+            "request": skippy_inference_api::chat::ChatCompletionRequest::from(request.clone()),
             "context": context.map(|context| json!({
                 "request_id": context.request_id().map(|id| id.as_uuid().to_string()),
                 "trusted_session": context.has_trusted_agent_session(),
@@ -41,16 +44,16 @@ impl ScriptedBackend {
         }));
     }
 
-    fn response(&self) -> InferenceResult<ChatCompletionResponse> {
+    fn response(&self) -> InferenceResult<GenerationResponse> {
         if self.script == "reject" {
             return Err(InferenceError::invalid_request("scripted rejection").with_param("seed"));
         }
         let tools = self.script == "tools";
-        Ok(ChatCompletionResponse::from_parts(
+        Ok(GenerationResponse::from_parts(
             "scripted-generation", 42, "fixture-model",
-            vec![ChatCompletionChoice {
+            vec![GenerationChoice {
                 index: 0,
-                message: AssistantMessage {
+                message: GeneratedMessage {
                     role: "assistant",
                     content: (!tools).then(|| "answer".into()),
                     reasoning_content: Some("reason".into()),
@@ -65,10 +68,10 @@ impl ScriptedBackend {
         ))
     }
 
-    fn chunks(&self) -> Vec<InferenceResult<ChatCompletionChunk>> {
-        let mut first = ChatCompletionChunk::delta("fixture-model", "an");
+    fn chunks(&self) -> Vec<InferenceResult<GenerationEvent>> {
+        let mut first = GenerationEvent::delta("fixture-model", "an");
         first.choices[0].delta.reasoning_content = Some("reason".into());
-        let mut second = ChatCompletionChunk::delta("fixture-model", "swer");
+        let mut second = GenerationEvent::delta("fixture-model", "swer");
         let reason = if self.script == "tools" {
             first.choices[0].delta.content = None;
             first.choices[0].delta.tool_calls = Some(json!([
@@ -87,8 +90,8 @@ impl ScriptedBackend {
         let mut chunks = vec![
             first,
             second,
-            ChatCompletionChunk::done_with_reason("fixture-model", reason),
-            ChatCompletionChunk::usage("fixture-model", Usage::new(21, 7)),
+            GenerationEvent::done_with_reason("fixture-model", reason),
+            GenerationEvent::usage("fixture-model", Usage::new(21, 7)),
         ];
         for chunk in &mut chunks {
             chunk.id = "scripted-generation".into();
@@ -108,33 +111,33 @@ impl InferenceBackend for ScriptedBackend {
         Ok(vec![ModelObject::new("fixture-model")])
     }
 
-    async fn count_chat_tokens(&self, request: ChatCompletionRequest) -> InferenceResult<u32> {
+    async fn count_chat_tokens(&self, request: GenerationRequest) -> InferenceResult<u32> {
         self.record(&request, None);
         Ok(21)
     }
 
     async fn chat_completion(
         &self,
-        request: ChatCompletionRequest,
-    ) -> InferenceResult<ChatCompletionResponse> {
+        request: GenerationRequest,
+    ) -> InferenceResult<GenerationResponse> {
         self.record(&request, None);
         self.response()
     }
 
     async fn chat_completion_with_context(
         &self,
-        request: ChatCompletionRequest,
+        request: GenerationRequest,
         context: InferenceRequestContext,
-    ) -> InferenceResult<ChatCompletionResponse> {
+    ) -> InferenceResult<GenerationResponse> {
         self.record(&request, Some(&context));
         self.response()
     }
 
     async fn chat_completion_stream(
         &self,
-        request: ChatCompletionRequest,
+        request: GenerationRequest,
         context: InferenceRequestContext,
-    ) -> InferenceResult<ChatCompletionStream> {
+    ) -> InferenceResult<GenerationEventStream> {
         self.record(&request, Some(&context));
         if self.script == "reject" {
             return self.response().map(|_| unreachable!());
