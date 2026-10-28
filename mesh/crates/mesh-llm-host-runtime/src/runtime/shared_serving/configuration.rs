@@ -104,7 +104,7 @@ pub(super) fn read_explicit_trust_store(path: &Path) -> Result<crate::crypto::Tr
 
 /// Accept only bounded ASCII labels that are safe single state-path components.
 fn valid_membership_name(name: &str) -> bool {
-    mesh_llm_config::memberships::valid_membership_name(name)
+    mesh_llm_config::memberships::valid_membership_directory_name(name)
 }
 
 /// Reread on every reconnect. Never fall back to an old token after a bad file.
@@ -210,7 +210,20 @@ mod tests {
     #[test]
     /// Accept only bounded membership labels that cannot traverse state directories.
     fn labels_are_bounded_path_components() {
-        for name in ["", ".", "..", "work/lab", "work\\lab", "é", "a\nb"] {
+        for name in [
+            "",
+            ".",
+            "..",
+            "work/lab",
+            "work\\lab",
+            "é",
+            "a\nb",
+            "work.",
+            "con",
+            "nul.txt",
+            "com1",
+            "lpt9.log",
+        ] {
             assert!(!valid_membership_name(name), "accepted {name:?}");
         }
         assert!(valid_membership_name("work-2_lan"));

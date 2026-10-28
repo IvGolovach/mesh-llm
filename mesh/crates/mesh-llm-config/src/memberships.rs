@@ -113,8 +113,8 @@ impl MembershipsConfig {
         let mut names = BTreeSet::new();
         for member in &self.memberships {
             ensure!(
-                valid_membership_name(&member.name),
-                "invalid membership name: use 1–64 lowercase ASCII letters, digits, '.', '_' or '-', without a leading '.'"
+                valid_membership_directory_name(&member.name),
+                "invalid membership directory name: use 1–64 lowercase ASCII letters, digits, '.', '_' or '-', without leading/trailing '.' or reserved state/device names"
             );
             ensure!(
                 names.insert(&member.name),
@@ -147,7 +147,7 @@ impl MembershipsConfig {
     }
 }
 
-/// Same local name contract for configured and dynamically added memberships.
+/// Common label syntax for configured and dynamically added memberships.
 /// Lowercase names remain distinct on case-insensitive filesystems.
 pub fn valid_membership_name(name: &str) -> bool {
     (1..=64).contains(&name.len())
@@ -155,6 +155,25 @@ pub fn valid_membership_name(name: &str) -> bool {
         && name.bytes().all(|b| {
             b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'.' | b'_' | b'-')
         })
+}
+
+/// Configured memberships use their names directly as state directories.
+/// Reject host state filenames and Windows-normalized/device names on every
+/// OS so a portable manifest cannot alias another identity or host control file.
+pub fn valid_membership_directory_name(name: &str) -> bool {
+    if !valid_membership_name(name)
+        || name.ends_with('.')
+        || matches!(name, "host.lock" | "management.token")
+    {
+        return false;
+    }
+    let stem = name.split('.').next().unwrap_or_default();
+    if matches!(stem, "con" | "prn" | "aux" | "nul") {
+        return false;
+    }
+    !(stem.len() == 4
+        && (stem.starts_with("com") || stem.starts_with("lpt"))
+        && matches!(stem.as_bytes()[3], b'1'..=b'9'))
 }
 
 const fn default_concurrency() -> usize {

@@ -113,9 +113,14 @@ On Unix, the management token and host lock are created with mode `0600`;
 existing files with any group or other permissions are rejected before their
 contents are changed. Correct their permissions explicitly before restarting.
 Membership labels accept 1–64 lowercase ASCII letters, digits, `.`, `_` and
-`-`, cannot start with `.`, and must be unique. These are the same name rules
-as dynamic memberships from #2571; state directories stay distinct on macOS
-and Windows too. Here names identify local attachments, not public mesh names.
+`-`, and must be unique. They follow the SDK's label syntax from #2571, with
+additional restrictions because they become state directories: no leading or
+trailing `.`, and no Windows device names (`con`, `prn`, `aux`, `nul`,
+`com1`–`com9`, `lpt1`–`lpt9`, including names followed by extensions).
+`host.lock` and `management.token` are also reserved for the host's own files.
+These restrictions apply on every OS so moving a manifest to Windows cannot
+alias another membership's state. Here names identify local attachments, not
+public mesh names; the existing SDK label contract is unchanged.
 
 Use each membership's `trust_store` to supply the existing trust-store format.
 Its `owner_key` selects an existing owner keystore; the owner signs each

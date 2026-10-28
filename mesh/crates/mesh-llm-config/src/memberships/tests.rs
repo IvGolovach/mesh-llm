@@ -131,3 +131,41 @@ fn names_match_dynamic_membership_contract() {
     }
     assert!(!valid_membership_name(&"a".repeat(65)));
 }
+
+#[test]
+fn manifests_reject_windows_directory_aliases_without_changing_sdk_label_syntax() {
+    for name in [
+        "work.",
+        "host.lock",
+        "management.token",
+        "con",
+        "prn.txt",
+        "aux",
+        "nul.tar.gz",
+        "com1",
+        "com9.log",
+        "lpt1",
+        "lpt9.txt",
+    ] {
+        assert!(
+            valid_membership_name(name),
+            "SDK label syntax changed for {name}"
+        );
+        assert!(
+            !valid_membership_directory_name(name),
+            "unsafe directory {name}"
+        );
+        let error = load(&VALID.replace("work.mesh", name)).1.unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("invalid membership directory name")
+        );
+    }
+    for name in ["work", "work.mesh", "conifer", "com10", "lpt0", "mesh-1"] {
+        assert!(
+            valid_membership_directory_name(name),
+            "safe directory {name}"
+        );
+    }
+}
