@@ -95,30 +95,14 @@ async fn orderly_stop_returns_cleanup_error() {
 #[tokio::test]
 /// A total initial join failure terminates foreground serving and releases the loaded host lock.
 async fn zero_connected_memberships_fail_startup_and_release_host_ownership() {
-    let mut fixture = Fixture::detached().await;
-    let mut config = fixture.host.config.clone();
-    config.state_dir = fixture.directory.path().join("strict-host");
-    let trust_path = fixture.directory.path().join("require-owned.json");
-    crate::crypto::save_trust_store(
-        &trust_path,
-        &crate::crypto::TrustStore {
-            policy: crate::crypto::TrustPolicy::RequireOwned,
-            ..Default::default()
-        },
-    )
-    .unwrap();
-    for member in &mut config.memberships {
-        member.trust_store = Some(trust_path.clone());
+    let fixture = Fixture::detached().await;
+    let config = fixture.host.config.clone();
+    // Fail every initial join after configuration admission, without depending
+    // on QUIC startup or handshake timing. Live trust rejection is covered by
+    // the membership-local allowlist test; this test owns foreground cleanup.
+    for member in &config.memberships {
+        std::fs::write(&member.token_file, "invalid-invite-token").unwrap();
     }
-    config.validate().unwrap();
-    fixture.host = SharedServingHost::assemble(
-        config.clone(),
-        fixture.host.descriptor.clone(),
-        fixture.backend.clone(),
-        None,
-        lock_state(&config).unwrap(),
-    )
-    .unwrap();
     let weak = Arc::downgrade(&fixture.host);
     let Fixture {
         host,
