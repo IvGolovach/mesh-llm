@@ -144,7 +144,6 @@ pub fn command_family(command: &Command) -> CliCommandFamily {
         Command::Wallet { .. } => CliCommandFamily::Wallet,
         Command::Gpus { .. } => CliCommandFamily::Hardware,
         Command::Serve
-        | Command::ServeShared(_)
         | Command::Client
         | Command::Runtime { .. }
         | Command::KvCache { .. }

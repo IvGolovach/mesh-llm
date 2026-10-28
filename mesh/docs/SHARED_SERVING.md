@@ -1,11 +1,13 @@
 # One model, independent mesh memberships
 
-`mesh-llm serve-shared` is an explicit, full-model serving mode for the first
+`mesh-llm serve --memberships-config memberships.toml` serves one model to
+independent meshes from a local configuration file, for the first
 milestone of [#2309](https://github.com/Mesh-LLM/mesh-llm/issues/2309). It loads
 one operator-selected local GGUF once and attaches that backend to independent
 meshes. It does not merge those meshes or distribute the model between them.
-The ordinary `serve` and `client` modes keep their existing configuration and
-lifecycle.
+Without `--memberships-config`, `serve` and `client` keep their existing
+configuration and lifecycle. Repeated `--join` still supplies bootstrap peers
+for **one** mesh; it does not create independent memberships.
 
 ## Ownership and isolation
 
@@ -38,17 +40,71 @@ logs, issues, or chat. Join tokens are bootstrap addresses/policies, not by
 themselves an access-control boundary: use each mesh's trust requirements for
 private deployments.
 
-```sh
-mesh-llm serve-shared \
-  --model-path /models/model.gguf \
-  --model-id shared-model \
-  --state-dir /private/operator/shared-model \
-  --membership work=/private/operator/work.token \
-  --membership lab=/private/operator/lab.token \
-  --concurrency 2 \
-  --queue-capacity 16 \
-  --membership-queue-capacity 8
+Save a separate `memberships.toml` on the serving host:
+
+```toml
+version = 1
+model_id = "shared-model"
+state_dir = "./shared-model-state"
+concurrency = 2
+queue_capacity = 16
+membership_queue_capacity = 8
+
+[[memberships]]
+name = "work"
+join_token_file = "./work.token"
+trust_store = "./work-trust.json"
+owner_key = "./owner.json"
+
+[[memberships]]
+name = "lab"
+join_token_file = "./lab.token"
+trust_store = "./lab-trust.json"
+owner_key = "./owner.json"
 ```
+
+Every path inside this file is relative to the file's directory, unless
+absolute. The `--gguf` path follows normal command-line working-directory
+rules. Inline join tokens and unknown TOML fields are rejected.
+
+```sh
+mesh-llm config validate --memberships-config /private/operator/memberships.toml
+# Config valid: /private/operator/memberships.toml
+
+mesh-llm serve --gguf /models/model.gguf \
+  --memberships-config /private/operator/memberships.toml
+```
+
+Validation checks the version, schema, names, limits and nonempty paths without
+reading credentials or creating state. Startup additionally validates the model
+file, join tokens and explicit trust/owner files before allocating the backend
+or binding endpoints. Correct schema alone does not prove a mesh will admit it.
+
+The manifest is limited to 64 KiB and is local-only, separate from `config.toml`, `MeshConfig`, gossip
+and the web config editor. It is read at startup; edit it and restart to change
+membership definitions or host limits. Reconnect re-reads token and trust files.
+`--config` still selects ordinary logging/analytics settings; its model,
+topology and GPU settings do not configure this shared host. Only `--gguf`,
+`--memberships-config`, `--ctx-size`, `--parallel`, `--config`, `--log-format`
+and `--debug` are accepted for this launch. Other explicit runtime flags,
+including `--join`, `--auto`, `--port` and `--console`, fail rather than being
+silently ignored. The control port belongs in the manifest.
+
+| Manifest field | Default / constraint |
+| --- | --- |
+| `version`, `model_id`, `state_dir`, `memberships` | Required; version is `1`, model ID is nonblank and at most 256 bytes, state path is nonempty, 1–16 memberships |
+| `concurrency` | `1`; 1–64 native lanes shared by all memberships |
+| `queue_capacity`, `membership_queue_capacity` | `32`, `16`; each 0–4096 waiting requests |
+| `context_size` | `4096`; at least 512 tokens |
+| `gpu_layers` | `-1`; all supported layers, or a nonnegative count (`0` for CPU) |
+| `management_port` | `0`; an available loopback port, or explicit 1–65535 |
+| `lan_only` | `false`; set `true` to disable relay/public STUN |
+| `bind_ip` | Unset; optional local interface address |
+| Membership `name`, `join_token_file` | Required; unique local name and nonempty token-file path |
+| Membership `trust_store`, `owner_key` | Unset; optional explicit existing files, per membership |
+
+`--ctx-size` and `--parallel` override `context_size` and `concurrency` for
+this launch. Invalid manifest values still fail validation even when overridden.
 
 The state directory is created privately on Unix; an existing directory must
 have mode `0700` and cannot be a symlink. It must be dedicated to this host, not
@@ -56,14 +112,14 @@ the ordinary `~/.mesh-llm` directory. A process lock prevents two hosts using it
 On Unix, the management token and host lock are created with mode `0600`;
 existing files with any group or other permissions are rejected before their
 contents are changed. Correct their permissions explicitly before restarting.
-Membership labels accept ASCII letters, digits, `_` and `-` only and must be
-unique ignoring case, so their state directories stay distinct on macOS and
-Windows too. They identify local attachments, not public mesh names. At most
-sixteen are supported.
+Membership labels accept 1–64 lowercase ASCII letters, digits, `.`, `_` and
+`-`, cannot start with `.`, and must be unique. These are the same name rules
+as dynamic memberships from #2571; state directories stay distinct on macOS
+and Windows too. Here names identify local attachments, not public mesh names.
 
-Use `--membership-trust work=/private/operator/work-trust.json` to supply the
-existing trust-store format for that attachment. `--attestation-key` selects an
-existing owner keystore; the owner signs each endpoint separately. Without an
+Use each membership's `trust_store` to supply the existing trust-store format.
+Its `owner_key` selects an existing owner keystore; the owner signs each
+endpoint separately. Without an
 explicit trust store, the existing `off` trust policy applies. These settings
 are not inherited from the normal single-mesh config, and are not remotely
 synchronized. Once its inputs are loaded, each attachment attempt, including
@@ -82,19 +138,19 @@ ordinary single-mesh node's `~/.mesh-llm/node-ownership.json`. If saving a renew
 certificate fails, the node logs a warning and keeps using the renewed proof
 in memory; it does not fall back to the global certificate file.
 
-`--lan-only` disables public relay and STUN; otherwise the usual
+`lan_only = true` disables public relay and STUN; otherwise the usual
 public relay transport is used, **without publishing the mesh to discovery**.
-Use `--bind-ip` to select a local QUIC interface for all attachments, each on
-its own ephemeral port. `--lan-only --bind-ip 127.0.0.1` keeps a same-machine
+Use `bind_ip` to select a local QUIC interface for all attachments, each on
+its own ephemeral port. `lan_only = true` with `bind_ip = "127.0.0.1"` keeps a same-machine
 test entirely on loopback; use an actual LAN address for other machines.
 
 Each attachment loads the running binary's verified embedded release proof
 before joining, including on reconnect. A mesh that requires certified releases
 still enforces its genesis policy and allowed release signers: an unsigned,
 tampered, or untrusted binary cannot join it. The owner keystore supplied through
-`--attestation-key` is separate from this binary certification.
+`owner_key` is separate from this binary certification.
 
-`--gpu-layers 0` selects CPU. `--context-size` and `--concurrency` are host-wide
+`gpu_layers = 0` selects CPU. Context size and concurrency are host-wide
 native settings, fixed until restart. Increasing either can increase memory
 use. Do not multiply the concurrency by the membership count.
 
@@ -153,6 +209,17 @@ shutdown withdraws all memberships and waits for admitted native work to drain.
 
 ## Compatibility and deliberate limits
 
+[PR #2571](https://github.com/Mesh-LLM/mesh-llm/pull/2571) provides the separate
+SDK `MeshMembershipConfig` / add-remove-list API for a **running node**. It
+creates named memberships with an owner allowlist and a per-membership routing
+API. This local manifest instead bootstraps a shared full-model server into
+existing meshes using token files and explicit trust stores, with one aggregate
+admission budget and isolated native execution/cache scopes. It does not
+replace or reinterpret that SDK API. In particular, `name` here is a local
+alias, and omitting `trust_store` preserves the explicit shared host's `Off`
+policy; it does not inherit the SDK's allowlist. Neither API treats multiple
+`--join` values as independent meshes.
+
 - The implementation adds no wire fields or stream kinds. Each membership is
   an ordinary full-model host to compatible peers. Its GPU placement capacity
   is zero, and stage execution/artifact-transfer capabilities are not advertised.
@@ -182,6 +249,11 @@ one recording backend to exercise isolation, lifecycle, reconnect and bad
 token handling. Those transport fixtures do not prove native model quality or
 cross-machine interoperability; a composed-product real-model smoke and a
 released-peer compatibility run are separate validation lanes.
+
+Manifest/CLI regressions also cover unknown fields, secret-safe parse errors,
+relative paths, unsupported option combinations and unchanged repeated joins.
+The product smoke launches ordinary `serve` with a relative-path manifest and
+explicit `--ctx-size`/`--parallel` overrides.
 
 Run the opt-in product test with a freshly composed release host/runtime and an
 existing causal GGUF. It creates isolated local seed meshes, state and caches;

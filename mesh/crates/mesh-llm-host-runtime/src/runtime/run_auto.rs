@@ -176,6 +176,13 @@ pub(crate) async fn run_cli(
     legacy_warning: Option<String>,
 ) -> Result<()> {
     initialize_runtime_entrypoint()?;
+    if options.memberships_config.is_some() {
+        anyhow::ensure!(
+            explicit_surface == Some(RuntimeSurface::Serve),
+            "configured memberships require serve"
+        );
+        return super::shared_serving::configured::run(&options).await;
+    }
     run_runtime_cli(options, explicit_surface, legacy_warning, None).await
 }
 
@@ -2049,6 +2056,7 @@ mod tests {
                 web_ui_enabled: None,
                 web_ui_primary_tab: None,
                 allow_peer_blocks: None,
+                allow_inference_observation: None,
                 openai_exchange_grant: None,
                 command: Some("invalid-blobstore-command".to_owned()),
                 args: Vec::new(),

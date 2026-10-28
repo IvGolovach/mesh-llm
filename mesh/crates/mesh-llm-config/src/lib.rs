@@ -3,6 +3,7 @@ mod diagnostic;
 mod env_overrides;
 mod hardware_validation;
 mod local_model_path;
+pub mod memberships;
 mod model;
 mod model_validation;
 mod openai_exchange;
@@ -985,6 +986,10 @@ gpu_id = "pci:0000:65:00.0"
             (
                 "PluginConfigEditor::allow_peer_blocks",
                 vec!["plugin.<plugin-name>.allow_peer_blocks"],
+            ),
+            (
+                "PluginConfigEditor::allow_inference_observation",
+                vec!["plugin.<plugin-name>.allow_inference_observation"],
             ),
             (
                 "PluginConfigEditor::command",

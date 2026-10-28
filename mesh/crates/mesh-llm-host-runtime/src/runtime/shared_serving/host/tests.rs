@@ -285,11 +285,20 @@ async fn two_independent_quic_meshes_share_backend_without_sharing_membership_or
 }
 
 #[tokio::test]
-/// Reject case-folded duplicate labels before they can share persisted state.
+/// Reject uppercase labels (as in the SDK) and duplicate lowercase labels
+/// before either can alias persisted state on a case-insensitive filesystem.
 async fn membership_labels_cannot_alias_state_on_case_insensitive_filesystems() {
     let fixture = Fixture::new().await;
     let mut config = fixture.host.config.clone();
     config.memberships[0].name = "ALPHA".into();
+    assert!(
+        config
+            .validate()
+            .unwrap_err()
+            .to_string()
+            .contains("invalid membership name")
+    );
+    config.memberships[0].name = "alpha".into();
     config.validate().unwrap();
     config.memberships[1].name = "alpha".into();
     assert!(

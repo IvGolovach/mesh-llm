@@ -40,45 +40,33 @@ async fn composed_product_serves_two_meshes_from_one_native_model() -> Result<()
     let port_reservation = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let port = port_reservation.local_addr()?.port();
     drop(port_reservation);
-    let alpha = format!(
-        "alpha={}",
-        fixture.directory.path().join("alpha.token").display()
-    );
-    let beta = format!(
-        "beta={}",
-        fixture.directory.path().join("beta.token").display()
-    );
+    let memberships = fixture.directory.path().join("memberships.toml");
+    // Relative paths deliberately exercise resolution against the manifest,
+    // independently of the product's working directory.
+    std::fs::write(
+        &memberships,
+        format!(
+            "version=1\nmodel_id='shared-test'\nstate_dir='composed-host'\n\
+         context_size=1024\nconcurrency=2\nqueue_capacity=4\nmembership_queue_capacity=2\n\
+         gpu_layers={gpu_layers}\nlan_only=true\nbind_ip='127.0.0.1'\nmanagement_port={port}\n\
+         [[memberships]]\nname='alpha'\njoin_token_file='alpha.token'\n\
+         [[memberships]]\nname='beta'\njoin_token_file='beta.token'\n"
+        ),
+    )?;
     let mut process = tokio::process::Command::new(binary)
         .arg("--config")
         .arg(&config)
         .args([
-            "serve-shared",
-            "--model-id",
-            "shared-test",
-            "--model-path",
+            "serve",
+            "--gguf",
             &model,
-            "--membership",
-            &alpha,
-            "--membership",
-            &beta,
-            "--context-size",
+            "--ctx-size",
             "512",
-            "--concurrency",
+            "--parallel",
             "1",
-            "--queue-capacity",
-            "4",
-            "--membership-queue-capacity",
-            "2",
-            "--gpu-layers",
-            &gpu_layers,
-            "--lan-only",
-            "--bind-ip",
-            "127.0.0.1",
-            "--management-port",
-            &port.to_string(),
-            "--state-dir",
+            "--memberships-config",
         ])
-        .arg(&state)
+        .arg(&memberships)
         .env("MESH_LLM_ANALYTICS", "0")
         .env("MESH_LLM_DATA_DIR", state.join("data"))
         .env("MESH_LLM_RUNTIME_ROOT", state.join("runtime"))

@@ -544,6 +544,10 @@ pub struct Cli {
     #[arg(long)]
     pub gguf: Vec<PathBuf>,
 
+    /// Local memberships TOML: serve one GGUF to independent meshes with shared capacity.
+    #[arg(long)]
+    pub memberships_config: Option<PathBuf>,
+
     /// Explicit mmproj sidecar for the primary served model.
     #[arg(long, hide = true)]
     pub mmproj: Option<PathBuf>,
@@ -923,8 +927,6 @@ pub enum Command {
     },
     /// Serve local models and join or publish a mesh.
     Serve,
-    /// Serve one loaded model to independent meshes with shared bounded capacity.
-    ServeShared(crate::shared_serving::SharedServingArgs),
     /// Run as a client-only mesh node with no local model required.
     Client,
     /// Manage model storage, migration, and update checks.
@@ -1338,6 +1340,9 @@ pub enum ConfigCommand {
         /// Config TOML path to validate. Defaults to --config, MESH_LLM_CONFIG, or ~/.mesh-llm/config.toml.
         #[arg(long = "config-path")]
         config_path: Option<PathBuf>,
+        /// Validate a local memberships TOML instead of the synchronized mesh config.
+        #[arg(long, conflicts_with = "config_path")]
+        memberships_config: Option<PathBuf>,
         /// Print machine-readable JSON output.
         #[arg(long)]
         json: bool,
@@ -1941,7 +1946,9 @@ mod tests {
         ]);
 
         let Some(Command::Config {
-            command: ConfigCommand::Validate { config_path, json },
+            command: ConfigCommand::Validate {
+                config_path, json, ..
+            },
         }) = cli.command
         else {
             panic!("expected config validate command");

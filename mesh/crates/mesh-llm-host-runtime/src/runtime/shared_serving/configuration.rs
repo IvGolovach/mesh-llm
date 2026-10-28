@@ -104,11 +104,7 @@ pub(super) fn read_explicit_trust_store(path: &Path) -> Result<crate::crypto::Tr
 
 /// Accept only bounded ASCII labels that are safe single state-path components.
 fn valid_membership_name(name: &str) -> bool {
-    !name.is_empty()
-        && name.len() <= 64
-        && name
-            .bytes()
-            .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+    mesh_llm_config::memberships::valid_membership_name(name)
 }
 
 /// Reread on every reconnect. Never fall back to an old token after a bad file.

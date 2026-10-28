@@ -3,6 +3,7 @@
 mod admission;
 mod backend;
 mod configuration;
+pub(crate) mod configured;
 mod control;
 mod host;
 mod local_http;

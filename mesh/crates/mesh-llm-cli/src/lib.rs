@@ -3,11 +3,11 @@
 pub mod agent_config;
 pub mod benchmark;
 pub mod inventory;
+pub mod memberships;
 pub mod models;
 pub mod pager;
 pub mod parser;
 pub mod runtime;
-pub mod shared_serving;
 pub mod shell;
 
 pub use mesh_llm_events::LogFormat;
