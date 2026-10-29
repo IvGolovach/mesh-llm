@@ -92,9 +92,9 @@ impl InferenceHookPolicy for NodeExchangePolicy {
     ) -> InferenceResult<()> {
         self.admit_typed_request(
             || {
-                serde_json::to_vec(&skippy_inference_api::chat::ChatCompletionRequest::from(
-                    request.clone(),
-                ))
+                serde_json::to_vec(
+                    &skippy_inference_api::chat::request_view::ChatCompletionRequestRef(request),
+                )
             },
             &request.model,
             "chat_completions",
