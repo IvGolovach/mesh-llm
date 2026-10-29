@@ -112,6 +112,16 @@ the ordinary `~/.mesh-llm` directory. A process lock prevents two hosts using it
 On Unix, the management token and host lock are created with mode `0600`;
 existing files with any group or other permissions are rejected before their
 contents are changed. Correct their permissions explicitly before restarting.
+On Windows, state directories, the management token, host lock and membership
+node keys are created with a protected DACL granting full access only to the
+current account. Existing objects must have the same owner-only DACL, with
+inheritance from their parent disabled. The directory's owner entry must also
+apply to new child files and directories. Unsafe existing state is rejected
+without rewriting its permissions or contents. Correct its permissions
+explicitly before restarting, preserving existing node keys to retain membership
+identities. Directory junctions, other reparse points and multiply linked state
+files are rejected.
+
 Membership labels accept 1–64 lowercase ASCII letters, digits, `.`, `_` and
 `-`, and must be unique. They follow the SDK's label syntax from #2571, with
 additional restrictions because they become state directories: no leading or

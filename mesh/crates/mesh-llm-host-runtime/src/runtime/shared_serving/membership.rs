@@ -18,7 +18,9 @@ use crate::network::tunnel::start_serving_attachment;
 
 use super::admission::{Admission, AdmissionStatus, MemberId};
 use super::backend::MembershipBackend;
-use super::configuration::{ServingMembershipConfig, private_directory, read_join_token};
+use super::configuration::{
+    ServingMembershipConfig, private_directory, private_node_key, read_join_token,
+};
 
 #[derive(Clone, Copy, Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -78,13 +80,7 @@ impl Membership {
         let directory = inputs.state_dir.join(&inputs.config.name);
         private_directory(&directory)?;
         let key_path = directory.join("node.key");
-        let key = if key_path.exists() {
-            mesh_llm_membership::load_node_key_from_path(&key_path)?
-        } else {
-            let key = iroh::SecretKey::generate();
-            mesh_llm_membership::save_node_key_to_path(&key_path, &key)?;
-            key
-        };
+        let key = private_node_key(&key_path)?;
         let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).await?;
         let port = listener.local_addr()?.port();
         let config_path = directory.join("config.toml");

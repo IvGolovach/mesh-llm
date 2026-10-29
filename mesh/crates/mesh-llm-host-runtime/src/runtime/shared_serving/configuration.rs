@@ -5,6 +5,50 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, ensure};
 
+#[cfg(windows)]
+mod windows_privacy;
+
+#[cfg(windows)]
+pub(super) fn private_directory(path: &Path) -> Result<()> {
+    windows_privacy::private_directory(path)
+}
+
+#[cfg(windows)]
+pub(super) fn private_file(path: &Path) -> Result<std::fs::File> {
+    windows_privacy::private_file(path).map(|(file, _)| file)
+}
+
+/// Windows reads and writes the key through the same DACL-validated handle.
+/// Keep the existing hex format and never replace an empty/corrupt saved key.
+#[cfg(windows)]
+pub(super) fn private_node_key(path: &Path) -> Result<iroh::SecretKey> {
+    use std::io::{Read, Write};
+    let (mut file, created) = windows_privacy::private_file(path)?;
+    if created {
+        let key = iroh::SecretKey::generate();
+        file.write_all(hex::encode(key.to_bytes()).as_bytes())?;
+        file.sync_all()?;
+        return Ok(key);
+    }
+    let mut encoded = String::new();
+    file.take(1025).read_to_string(&mut encoded)?;
+    ensure!(encoded.len() <= 1024, "shared node key is oversized");
+    let mut bytes = [0; 32];
+    hex::decode_to_slice(encoded.trim(), &mut bytes).context("invalid shared node key")?;
+    Ok(iroh::SecretKey::from_bytes(&bytes))
+}
+
+#[cfg(not(windows))]
+pub(super) fn private_node_key(path: &Path) -> Result<iroh::SecretKey> {
+    if path.exists() {
+        mesh_llm_membership::load_node_key_from_path(path)
+    } else {
+        let key = iroh::SecretKey::generate();
+        mesh_llm_membership::save_node_key_to_path(path, &key)?;
+        Ok(key)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ServingMembershipConfig {
     pub name: String,
@@ -128,6 +172,7 @@ pub(super) fn read_join_token(path: &Path) -> Result<String> {
 
 /// Create or validate a real state directory, rejecting symlinks.
 /// On Unix, require existing permissions to exclude group and other access.
+#[cfg(not(windows))]
 pub(super) fn private_directory(path: &Path) -> Result<()> {
     let mut builder = std::fs::DirBuilder::new();
     builder.recursive(true);
@@ -156,6 +201,7 @@ pub(super) fn private_directory(path: &Path) -> Result<()> {
 /// Open a state file for reading and writing without truncating existing data.
 /// Reject symlinks; on Unix, create with mode 0600 and open with `O_NOFOLLOW`.
 /// Validate the opened file's permissions before any caller can rewrite its contents.
+#[cfg(not(windows))]
 pub(super) fn private_file(path: &Path) -> Result<std::fs::File> {
     let mut options = std::fs::OpenOptions::new();
     options.read(true).write(true).create(true);
@@ -184,6 +230,25 @@ pub(super) fn private_file(path: &Path) -> Result<std::fs::File> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn private_node_keys_preserve_identity_and_reject_corruption() {
+        let temp = tempfile::tempdir().unwrap();
+        let state = temp.path().join("state");
+        private_directory(&state).unwrap();
+        let path = state.join("node.key");
+        let key = private_node_key(&path).unwrap();
+        assert_eq!(private_node_key(&path).unwrap().public(), key.public());
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            hex::encode(key.to_bytes())
+        );
+        for invalid in ["", "invalid", "00"] {
+            std::fs::write(&path, invalid).unwrap();
+            assert!(private_node_key(&path).is_err());
+            assert_eq!(std::fs::read_to_string(&path).unwrap(), invalid);
+        }
+    }
 
     #[test]
     /// Require explicit trust files to exist, parse and use the supported schema version.
