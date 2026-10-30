@@ -92,6 +92,7 @@ impl Node {
         if identity.is_some() {
             hardware.vram_bytes = 0;
             hardware.local_runtime_capacity_bytes = 0;
+            hardware.host_ram_capacity_bytes = 0;
             hardware.host_ram_offload_gain_bytes = 0;
         }
         let owner_runtime = init_owner_runtime(
@@ -166,6 +167,7 @@ impl Node {
             )),
             vram_bytes: hardware.vram_bytes,
             local_runtime_capacity_bytes: hardware.local_runtime_capacity_bytes,
+            host_ram_capacity_bytes: hardware.host_ram_capacity_bytes,
             host_ram_offload_gain_bytes: hardware.host_ram_offload_gain_bytes,
             peer_change_tx,
             peer_change_rx,

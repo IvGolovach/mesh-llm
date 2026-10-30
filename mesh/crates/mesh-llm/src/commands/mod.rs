@@ -49,8 +49,12 @@ async fn dispatch_command(cli: &Cli, cmd: &Command) -> Result<()> {
             mesh_llm_commands::kv_cache::dispatch_kv_cache_command(command).await
         }
         Command::Runtime { command } => {
-            dispatch_runtime_command(command.as_ref(), cli.config.as_deref(), cli.llama_flavor)
-                .await
+            dispatch_runtime_command(
+                command.as_ref(),
+                cli.config.as_deref(),
+                cli.placement.llama_flavor,
+            )
+            .await
         }
         Command::ModelPrepare { .. } => dispatch_model_prepare(cmd).await,
         Command::Hermes(args) => mesh_llm_commands::agent_cli::config_write::run(args, true).await,
@@ -103,7 +107,7 @@ async fn dispatch_general_command(cli: &Cli, cmd: &Command) -> Result<()> {
             unreachable!("runtime and kv-cache commands are dispatched before general commands")
         }
         Command::Setup { .. } => {
-            dispatch_setup_command(cmd, cli.config.as_deref(), cli.llama_flavor).await
+            dispatch_setup_command(cmd, cli.config.as_deref(), cli.placement.llama_flavor).await
         }
         Command::Analytics { command } => {
             dispatch_analytics_command(command, cli.config.as_deref())
@@ -137,7 +141,7 @@ async fn dispatch_general_command(cli: &Cli, cmd: &Command) -> Result<()> {
             dispatch_doctor_command(
                 command.as_ref(),
                 cli.config.as_deref(),
-                cli.llama_flavor,
+                cli.placement.llama_flavor,
                 *json,
             )
             .await
@@ -162,8 +166,8 @@ async fn dispatch_general_command(cli: &Cli, cmd: &Command) -> Result<()> {
                 region: region.clone(),
                 auto_join: *auto,
                 relays: relay.clone(),
-                discovery_mode: cli.mesh_discovery_mode,
-                supplied_join_tokens: cli.join.clone(),
+                discovery_mode: cli.joining.mesh_discovery_mode,
+                supplied_join_tokens: cli.joining.join.clone(),
             })
             .await
         }
@@ -319,7 +323,7 @@ fn resolved_plugin_list_rows(cli: &Cli) -> Result<mesh_llm_commands::plugin::Plu
 fn plugin_runtime_options_from_cli(cli: &Cli) -> mesh_llm_host_runtime::RuntimeOptions {
     mesh_llm_host_runtime::RuntimeOptions {
         config: cli.config.clone(),
-        publish: cli.publish,
+        publish: cli.mesh_policy.publish,
         nostr_discovery: cli.nostr_discovery,
         ..mesh_llm_host_runtime::RuntimeOptions::default()
     }

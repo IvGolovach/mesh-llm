@@ -249,6 +249,7 @@ async fn two_independent_quic_meshes_share_backend_without_sharing_membership_or
         assert!(node.full_model_only);
         assert_eq!(node.vram_bytes, 0);
         assert_eq!(node.local_runtime_capacity_bytes, 0);
+        assert_eq!(node.host_ram_capacity_bytes, 0);
     }
     let scopes = fixture.backend.scopes.lock().unwrap().clone();
     assert_eq!(scopes.len(), 2);
