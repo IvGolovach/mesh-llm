@@ -23,3 +23,14 @@ The test's `UPDATE_GENERATION_WIRE_FIXTURES` switch exists to capture an explici
 reviewed behavior baseline. Regenerating the golden file from a refactored backend
 is not evidence of compatibility. Keep this fixture unchanged for the migration;
 an upstream behavior fix requires a separately recorded baseline adjustment.
+
+## Upstream baseline adjustments
+
+Main commit `b8b0da3439ddaa27d6e42639286c119fa61c0429` (#2614) folds inline
+Anthropic system turns into the leading system message and revises the invalid
+role diagnostic. Accordingly, `messages-inline-system` now records the leading
+`first\ninline` system message followed by the user turn, and `messages-bad-role`
+uses that commit's diagnostic. These two adjustments were checked against the
+upstream translator and its passing unit tests in an unrefactored API checkout;
+the other 36 cases are unchanged. The fixture was not regenerated from the
+migrated backend.

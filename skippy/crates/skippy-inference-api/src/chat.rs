@@ -67,7 +67,18 @@ impl ChatCompletionRequest {
     }
 
     pub fn validate(&self) -> Result<(), InferenceError> {
-        crate::generation::GenerationRequest::from(self.clone()).validate()
+        crate::generation::validation::RequestValidation {
+            model: &self.model,
+            messages: &self.messages,
+            max_tokens: self.max_tokens,
+            max_completion_tokens: self.max_completion_tokens,
+            n: self.n,
+            logprobs: self.logprobs,
+            top_logprobs: self.top_logprobs,
+            tools: self.tools.as_ref(),
+            response_format: self.response_format.as_ref(),
+        }
+        .validate()
     }
 }
 

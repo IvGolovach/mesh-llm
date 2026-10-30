@@ -6,6 +6,7 @@
 pub mod content;
 mod request;
 pub mod response;
+pub(crate) mod validation;
 
 pub use content::{
     GenerationMessage, MessageContent, MessageContentPart, ensure_tool_call_ids,

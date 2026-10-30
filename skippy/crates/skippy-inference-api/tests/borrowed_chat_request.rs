@@ -113,3 +113,35 @@ fn serializing_multimodal_payloads_borrows_without_heap_allocations() {
         "serialization must borrow the payload and extensions"
     );
 }
+
+#[test]
+fn wire_validation_adds_no_allocations_over_generation_validation() {
+    let payload = "A".repeat(1024 * 1024);
+    let mut wire: ChatCompletionRequest = serde_json::from_value(json!({
+        "model":"model", "messages":[{"role":"user","content":[
+            {"type":"image_url","image_url":{"url":format!("data:image/png;base64,{payload}")}},
+            {"type":"input_audio","input_audio":{"data":payload,"format":"wav"}}
+        ]}],
+        "tools":[{"type":"function","function":{"name":"example","parameters":{"type":"object"}}}],
+        "opaque":{"nested":["preserve",null]}
+    }))
+    .unwrap();
+    for valid in [true, false] {
+        if !valid {
+            wire.model.clear();
+        }
+        let request = GenerationRequest::from(wire.clone());
+        ALLOCATIONS.with(|count| count.set(Some(0)));
+        let generation_result = request.validate();
+        let generation_allocations = ALLOCATIONS.with(|count| count.replace(None).unwrap());
+        ALLOCATIONS.with(|count| count.set(Some(0)));
+        let wire_result = wire.validate();
+        let wire_allocations = ALLOCATIONS.with(|count| count.replace(None).unwrap());
+        assert_eq!(generation_result.is_ok(), valid);
+        assert_eq!(wire_result.is_ok(), valid);
+        assert_eq!(
+            wire_allocations, generation_allocations,
+            "wire validation must not clone messages, media, tools or extensions"
+        );
+    }
+}

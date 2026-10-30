@@ -1,5 +1,6 @@
 //! HTTP characterization captured on main before the #2232 boundary migration.
 //! Keep the golden file unchanged while migrating backend implementations.
+//! Independent upstream fixes are recorded in fixtures/README.md.
 //! Only frontend-generated IDs/timestamps are normalized; scripted backend IDs,
 //! tool IDs, payloads, errors, optional fields and SSE ordering remain exact.
 
@@ -438,7 +439,7 @@ async fn characterize(case: Case) -> Value {
 }
 
 #[tokio::test]
-async fn generation_wire_matches_pre_migration_main() {
+async fn generation_wire_matches_main_baseline() {
     let mut results = Vec::new();
     for case in chat_cases()
         .into_iter()

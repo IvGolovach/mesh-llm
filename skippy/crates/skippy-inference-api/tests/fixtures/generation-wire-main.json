@@ -2291,16 +2291,12 @@
           "mesh_internal_agent_session_source": "x-agent-session",
           "messages": [
             {
-              "content": "first",
+              "content": "first\ninline",
               "role": "system"
             },
             {
               "content": "hello",
               "role": "user"
-            },
-            {
-              "content": "inline",
-              "role": "system"
             }
           ],
           "model": "fixture-model",
@@ -2444,7 +2440,7 @@
     "backend": [],
     "body": {
       "error": {
-        "message": "messages[0]: role must be `user`, `assistant`, or the Claude Code `system` extension, got `developer`",
+        "message": "messages[0]: role must be `user` or `assistant`, got `developer`",
         "type": "invalid_request_error"
       },
       "type": "error"
